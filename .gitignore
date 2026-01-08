@@ -35,4 +35,6 @@ build/
 ### Gemini CLI ###
 GEMINI.md
 .gemini/
+
+### Environment Setup ###
 .env

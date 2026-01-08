@@ -5,8 +5,8 @@ spring:
   application:
     name: ShigureCafeBackened
   datasource:
-    url: jdbc:mysql://localhost:3306/user_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: root
+    url: ${DB_URL}
+    username: ${DB_USER}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
@@ -28,4 +28,4 @@ spring:
 
 application:
   mail:
-    from: noreply@shigure-nomi.shop # 直接使用的发件地址
+    from: noreply@shigure-nomi.shop
