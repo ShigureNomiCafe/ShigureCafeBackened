@@ -139,9 +139,15 @@ public class UserService {
         // New User
         verifyCode(request.getEmail(), request.getVerificationCode());
 
+        if (request.getNickname() != null && request.getNickname().length() > 50) {
+            throw new BusinessException("Nickname too long (max 50 characters)");
+        }
+
         // 创建用户
         User user = new User();
         user.setUsername(request.getUsername());
+        user.setNickname(request.getNickname() != null && !request.getNickname().isBlank() 
+                ? request.getNickname() : request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(Role.USER);
@@ -321,6 +327,17 @@ public class UserService {
     public User getUserByUsername(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new BusinessException("User not found"));
+    }
+
+    @Transactional
+    public void updateNickname(Long id, String nickname) {
+        if (nickname != null && nickname.length() > 50) {
+            throw new BusinessException("Nickname too long (max 50 characters)");
+        }
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("User not found"));
+        user.setNickname(nickname);
+        userRepository.save(user);
     }
 
     @Scheduled(cron = "0 0 * * * ?")

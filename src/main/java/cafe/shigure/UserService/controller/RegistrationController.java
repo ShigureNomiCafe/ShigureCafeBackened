@@ -29,7 +29,7 @@ public class RegistrationController {
     @GetMapping("/{auditCode}")
     public ResponseEntity<UserResponse> checkRegistration(@PathVariable String auditCode) {
         User user = userService.getUserByAuditCode(auditCode);
-        return ResponseEntity.ok(new UserResponse(user.getUsername(), user.getEmail(), user.getRole(), user.getStatus()));
+        return ResponseEntity.ok(new UserResponse(user.getUsername(), user.getNickname(), user.getEmail(), user.getRole(), user.getStatus()));
     }
 
     @PatchMapping("/{auditCode}")

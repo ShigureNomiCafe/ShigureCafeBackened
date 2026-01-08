@@ -132,10 +132,25 @@ public class UserResourceController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/{username}/nickname")
+    public ResponseEntity<Void> updateNickname(@PathVariable String username, @RequestBody UpdateNicknameRequest request, @AuthenticationPrincipal User currentUser) {
+        boolean isSelf = currentUser.getUsername().equals(username);
+        boolean isAdmin = currentUser.getRole() == Role.ADMIN;
+
+        if (!isSelf && !isAdmin) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        User targetUser = userService.getUserByUsername(username);
+        userService.updateNickname(targetUser.getId(), request.nickname());
+        return ResponseEntity.ok().build();
+    }
+
     private UserResponse mapToUserResponse(User user) {
-        return new UserResponse(user.getUsername(), user.getEmail(), user.getRole(), user.getStatus());
+        return new UserResponse(user.getUsername(), user.getNickname(), user.getEmail(), user.getRole(), user.getStatus());
     }
 
     public record ChangePasswordRequest(String oldPassword, String newPassword) {}
     public record ChangeRoleRequest(Role role) {}
+    public record UpdateNicknameRequest(String nickname) {}
 }
