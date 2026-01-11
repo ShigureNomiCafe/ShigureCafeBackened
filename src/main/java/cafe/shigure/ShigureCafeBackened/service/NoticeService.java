@@ -7,6 +7,8 @@ import cafe.shigure.ShigureCafeBackened.model.Notice;
 import cafe.shigure.ShigureCafeBackened.model.User;
 import cafe.shigure.ShigureCafeBackened.repository.NoticeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,7 @@ public class NoticeService {
 
     private final NoticeRepository noticeRepository;
 
+    @Cacheable(value = "notices", key = "'all'")
     public List<NoticeResponse> getAllNotices() {
         return noticeRepository.findAllByOrderByPinnedDescCreatedAtDesc()
                 .stream()
@@ -26,6 +29,7 @@ public class NoticeService {
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(value = "notices", key = "#id")
     public NoticeResponse getNoticeById(Long id) {
         Notice notice = noticeRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("NOTICE_NOT_FOUND"));
@@ -33,6 +37,7 @@ public class NoticeService {
     }
 
     @Transactional
+    @CacheEvict(value = "notices", allEntries = true)
     public NoticeResponse createNotice(NoticeRequest request, User author) {
         Notice notice = new Notice(request.getTitle(), request.getContent(), request.isPinned(), author);
         Notice savedNotice = noticeRepository.save(notice);
@@ -40,6 +45,7 @@ public class NoticeService {
     }
 
     @Transactional
+    @CacheEvict(value = "notices", allEntries = true)
     public NoticeResponse updateNotice(Long id, NoticeRequest request) {
         Notice notice = noticeRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("NOTICE_NOT_FOUND"));
@@ -53,6 +59,7 @@ public class NoticeService {
     }
 
     @Transactional
+    @CacheEvict(value = "notices", allEntries = true)
     public void deleteNotice(Long id) {
         if (!noticeRepository.existsById(id)) {
             throw new BusinessException("NOTICE_NOT_FOUND");
