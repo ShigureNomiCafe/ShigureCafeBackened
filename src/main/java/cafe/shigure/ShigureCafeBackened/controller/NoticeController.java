@@ -25,6 +25,11 @@ public class NoticeController {
         return ResponseEntity.ok(noticeService.getAllNotices());
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<NoticeResponse> getNoticeById(@PathVariable Long id) {
+        return ResponseEntity.ok(noticeService.getNoticeById(id));
+    }
+
     @PostMapping
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<NoticeResponse> createNotice(

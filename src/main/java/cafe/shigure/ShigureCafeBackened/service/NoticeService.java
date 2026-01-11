@@ -26,6 +26,12 @@ public class NoticeService {
                 .collect(Collectors.toList());
     }
 
+    public NoticeResponse getNoticeById(Long id) {
+        Notice notice = noticeRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("NOTICE_NOT_FOUND"));
+        return mapToResponse(notice);
+    }
+
     @Transactional
     public NoticeResponse createNotice(NoticeRequest request, User author) {
         Notice notice = new Notice(request.getTitle(), request.getContent(), request.isPinned(), author);
