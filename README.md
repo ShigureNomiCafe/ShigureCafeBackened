@@ -49,7 +49,7 @@ The backend service for ShigureCafe, a robust and secure user management system 
 
 ### Configuration
 
-Create a `.env` file in the root directory:
+The application requires the following environment variables. You can source them from a `.env` file or set them in your environment:
 
 ```env
 DB_URL=jdbc:mariadb://localhost:3306/shigure_cafe
@@ -65,7 +65,12 @@ AZURE_CLIENT_SECRET=your_azure_client_secret
 
 ### Running the Application
 
+Before running the application, ensure the environment variables are sourced:
+
 ```bash
+# If using a .env file
+export $(grep -v '^#' .env | xargs)
+
 # Using Maven Wrapper
 ./mvnw spring-boot:run
 ```
