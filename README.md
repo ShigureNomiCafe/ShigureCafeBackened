@@ -38,6 +38,19 @@ The backend service for ShigureCafe, a robust and secure user management system 
 *   **MFA:** dev.samstevens.totp 1.7.1
 *   **Documentation:** Springdoc OpenAPI 2.8.14
 
+## Project Structure
+
+```text
+src/main/java/cafe/shigure/ShigureCafeBackened/
+├── config/             # Security, JWT, and App configurations
+├── controller/         # REST Endpoints (Auth, Notices, Users, Registration)
+├── dto/                # Data Transfer Objects (Requests/Responses)
+├── exception/          # Global exception handling and custom exceptions
+├── model/              # JPA Entities (User, Notice, Audit, etc.)
+├── repository/         # Spring Data JPA Repositories
+└── service/            # Business logic (Security, Emails, User management)
+```
+
 ## Getting Started
 
 ### Prerequisites
