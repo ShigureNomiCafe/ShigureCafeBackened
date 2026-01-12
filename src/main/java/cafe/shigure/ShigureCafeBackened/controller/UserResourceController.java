@@ -169,8 +169,28 @@ public class UserResourceController {
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/{username}/2fa")
+    public ResponseEntity<Void> resetTwoFactor(@PathVariable String username, @AuthenticationPrincipal User currentUser) {
+        if (currentUser.getRole() != Role.ADMIN) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        User targetUser = userService.getUserByUsername(username);
+        userService.resetTwoFactor(targetUser.getId());
+        return ResponseEntity.ok().build();
+    }
+
     private UserResponse mapToUserResponse(User user) {
-        return new UserResponse(user.getUsername(), user.getNickname(), user.getEmail(), user.getRole(), user.getStatus(), user.isEmail2faEnabled(), user.getTotpSecret() != null);
+        boolean totpEnabled = user.getTotpSecret() != null;
+        return new UserResponse(
+                user.getUsername(),
+                user.getNickname(),
+                user.getEmail(),
+                user.getRole(),
+                user.getStatus(),
+                user.isEmail2faEnabled() || totpEnabled,
+                user.isEmail2faEnabled(),
+                totpEnabled
+        );
     }
 
     public record ChangePasswordRequest(String oldPassword, String newPassword) {}

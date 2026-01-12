@@ -196,6 +196,15 @@ public class UserService {
         userRepository.save(user);
     }
 
+    @Transactional
+    public void resetTwoFactor(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
+        user.setEmail2faEnabled(false);
+        user.setTotpSecret(null);
+        userRepository.save(user);
+    }
+
     public void logout(String token) {
         if (token != null && token.startsWith("Bearer ")) {
             String jwt = token.substring(7);

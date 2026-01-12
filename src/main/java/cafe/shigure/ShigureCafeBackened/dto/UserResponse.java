@@ -13,6 +13,7 @@ public class UserResponse {
     private String email;
     private Role role;
     private UserStatus status;
+    private boolean twoFactorEnabled;
     private boolean email2faEnabled;
     private boolean totpEnabled;
 }
