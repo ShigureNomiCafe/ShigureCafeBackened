@@ -1,6 +1,7 @@
 package cafe.shigure.ShigureCafeBackened.service;
 
 import cafe.shigure.ShigureCafeBackened.exception.BusinessException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -17,6 +18,7 @@ import java.util.Map;
 public class MinecraftAuthService {
 
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${application.microsoft.minecraft.client-id}")
     private String clientId;
@@ -68,7 +70,19 @@ public class MinecraftAuthService {
                 return (String) response.getBody().get("access_token");
             }
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
-            System.err.println("Microsoft Auth Error: " + e.getResponseBodyAsString());
+            String responseBody = e.getResponseBodyAsString();
+            System.err.println("Microsoft Auth Error: " + responseBody);
+            try {
+                Map errorMap = objectMapper.readValue(responseBody, Map.class);
+                if (errorMap != null && errorMap.containsKey("error")) {
+                    String error = (String) errorMap.get("error");
+                    if ("invalid_grant".equals(error)) {
+                        throw new BusinessException("MICROSOFT_INVALID_GRANT");
+                    }
+                }
+            } catch (BusinessException be) {
+                throw be;
+            } catch (Exception ignored) {}
             throw new BusinessException("MICROSOFT_AUTH_FAILED");
         }
         throw new BusinessException("MICROSOFT_AUTH_FAILED");
@@ -102,7 +116,8 @@ public class MinecraftAuthService {
                 return Map.of("token", token, "uhs", uhs);
             }
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
-            System.err.println("Xbox Live Auth Error: " + e.getResponseBodyAsString());
+            String responseBody = e.getResponseBodyAsString();
+            System.err.println("Xbox Live Auth Error: " + responseBody);
             throw new BusinessException("XBOX_LIVE_AUTH_FAILED");
         }
         throw new BusinessException("XBOX_LIVE_AUTH_FAILED");
@@ -131,10 +146,44 @@ public class MinecraftAuthService {
             }
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
             String responseBody = e.getResponseBodyAsString();
-            System.err.println("XSTS Auth Error: " + responseBody);
-            // Check for common Xbox errors
-            if (responseBody.contains("2148916233")) throw new BusinessException("XBOX_ACCOUNT_NOT_FOUND");
-            if (responseBody.contains("2148916238")) throw new BusinessException("XBOX_CHILD_ACCOUNT_RESTRICTION");
+            System.err.println("XSTS Auth Error Body: " + responseBody);
+            
+            try {
+                // Try parsing JSON to get exact XErr code
+                Map<String, Object> errorMap = objectMapper.readValue(responseBody, Map.class);
+                if (errorMap != null && errorMap.containsKey("XErr")) {
+                    Object xErrObj = errorMap.get("XErr");
+                    long xErr = 0;
+                    if (xErrObj instanceof Number) {
+                        xErr = ((Number) xErrObj).longValue();
+                    } else if (xErrObj instanceof String) {
+                        xErr = Long.parseLong((String) xErrObj);
+                    }
+                    
+                    // 2148916233 (decimal) -> Account not found
+                    if (xErr == 2148916233L) {
+                        throw new BusinessException("XBOX_ACCOUNT_NOT_FOUND");
+                    }
+                    // 2148916238 (decimal) -> Child account
+                    if (xErr == 2148916238L) {
+                        throw new BusinessException("XBOX_CHILD_ACCOUNT_RESTRICTION");
+                    }
+                    // 2148916235 (decimal) -> Xbox not available in country
+                    if (xErr == 2148916235L) {
+                        throw new BusinessException("XBOX_NOT_AVAILABLE_IN_COUNTRY");
+                    }
+                }
+            } catch (BusinessException be) {
+                throw be;
+            } catch (Exception ignored) {}
+
+            // Fallback string checks
+            if (responseBody.contains("2148916233") || responseBody.contains("8015DC09") || responseBody.contains("-2146051063") || responseBody.contains("Account doesn't have an Xbox account")) {
+                throw new BusinessException("XBOX_ACCOUNT_NOT_FOUND");
+            }
+            if (responseBody.contains("2148916238") || responseBody.contains("8015DC0E") || responseBody.contains("-2146051058")) {
+                throw new BusinessException("XBOX_CHILD_ACCOUNT_RESTRICTION");
+            }
             throw new BusinessException("XSTS_AUTH_FAILED");
         }
         throw new BusinessException("XSTS_AUTH_FAILED");
@@ -159,8 +208,32 @@ public class MinecraftAuthService {
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
             String responseBody = e.getResponseBodyAsString();
             System.err.println("Minecraft Login Error: " + responseBody);
+            
+            try {
+                Map errorMap = objectMapper.readValue(responseBody, Map.class);
+                if (errorMap != null) {
+                    if (errorMap.containsKey("details")) {
+                        Map details = (Map) errorMap.get("details");
+                        if ("ACCOUNT_SUSPENDED".equals(details.get("reason"))) {
+                            throw new BusinessException("MINECRAFT_ACCOUNT_SUSPENDED");
+                        }
+                    }
+                    if (errorMap.containsKey("errorMessage")) {
+                        String errMsg = (String) errorMap.get("errorMessage");
+                        if (errMsg.contains("suspended")) {
+                            throw new BusinessException("MINECRAFT_ACCOUNT_SUSPENDED");
+                        }
+                    }
+                }
+            } catch (BusinessException be) {
+                throw be;
+            } catch (Exception ignored) {}
+
             if (responseBody.contains("Invalid app registration")) {
                 throw new BusinessException("MINECRAFT_APP_REGISTRATION_INVALID");
+            }
+            if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                throw new BusinessException("RATE_LIMIT_EXCEEDED");
             }
             throw new BusinessException("MINECRAFT_AUTH_FAILED");
         }
@@ -179,7 +252,19 @@ public class MinecraftAuthService {
                 return (String) response.getBody().get("id");
             }
         } catch (org.springframework.web.client.HttpStatusCodeException e) {
-            System.err.println("Minecraft Profile Error: " + e.getResponseBodyAsString());
+            String responseBody = e.getResponseBodyAsString();
+            System.err.println("Minecraft Profile Error: " + responseBody);
+            
+            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
+                throw new BusinessException("MINECRAFT_PROFILE_NOT_FOUND");
+            }
+            if (e.getStatusCode() == HttpStatus.UNAUTHORIZED) {
+                throw new BusinessException("MINECRAFT_UNAUTHORIZED");
+            }
+            if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                throw new BusinessException("RATE_LIMIT_EXCEEDED");
+            }
+            
             throw new BusinessException("MINECRAFT_PROFILE_FAILED");
         }
         throw new BusinessException("MINECRAFT_PROFILE_FAILED");
