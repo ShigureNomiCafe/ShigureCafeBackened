@@ -3,7 +3,6 @@ package cafe.shigure.ShigureCafeBackened.repository;
 import cafe.shigure.ShigureCafeBackened.model.UserAudit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface UserAuditRepository extends JpaRepository<UserAudit, Long> {
@@ -11,5 +10,5 @@ public interface UserAuditRepository extends JpaRepository<UserAudit, Long> {
     Optional<UserAudit> findByUserId(Long userId);
 
     @Query("SELECT MAX(ua.updatedAt) FROM UserAudit ua")
-    Optional<LocalDateTime> findMaxUpdatedAt();
+    Optional<Long> findMaxUpdatedAt();
 }

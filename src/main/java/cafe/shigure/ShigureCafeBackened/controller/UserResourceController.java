@@ -8,7 +8,6 @@ import cafe.shigure.ShigureCafeBackened.model.User;
 import cafe.shigure.ShigureCafeBackened.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -16,9 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -37,16 +33,14 @@ public class UserResourceController {
 
     @GetMapping
     public ResponseEntity<?> getUsers(
-            @RequestParam(required = false) String username,
+            @RequestParam(required = false) Long t,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "username") String sortBy,
             @RequestParam(defaultValue = "asc") String direction) {
         
-        if (username != null && !username.isEmpty()) {
-            User user = userService.getUserByUsername(username);
-            UserResponse response = userService.mapToUserResponse(user);
-            return ResponseEntity.ok(Collections.singletonList(response));
+        if (!userService.checkUsersModified(t)) {
+             return ResponseEntity.status(HttpStatus.NOT_MODIFIED).build();
         }
         
         Sort sort = direction.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();

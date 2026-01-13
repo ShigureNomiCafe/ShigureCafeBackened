@@ -12,18 +12,14 @@ import cafe.shigure.ShigureCafeBackened.repository.UserAuditRepository;
 import cafe.shigure.ShigureCafeBackened.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -56,8 +52,27 @@ public class UserService {
     private final SecretGenerator totpSecretGenerator = new DefaultSecretGenerator();
     private final CodeVerifier totpVerifier = new DefaultCodeVerifier(
             new DefaultCodeGenerator(),
-            new SystemTimeProvider()
-    );
+            new SystemTimeProvider());
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public boolean checkUsersModified(Long t) {
+        if (t == null) {
+            return true;
+        }
+        return userRepository.findMaxUpdatedAt()
+                .map(upd -> upd > t)
+                .orElse(true);
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public boolean checkAuditsNotModified(Long t) {
+        if (t == null) {
+            return false;
+        }
+        return userAuditRepository.findMaxUpdatedAt()
+                .map(upd -> upd <= t)
+                .orElse(t >= 0);
+    }
 
     @Transactional
     public void sendVerificationCode(String email, String type) {
@@ -80,7 +95,8 @@ public class UserService {
 
         if (Boolean.TRUE.equals(redisTemplate.hasKey(limitKey))) {
             Long expire = redisTemplate.getExpire(limitKey, TimeUnit.SECONDS);
-            throw new BusinessException("RATE_LIMIT_EXCEEDED", java.util.Map.of("retryAfter", expire != null ? expire : 60));
+            throw new BusinessException("RATE_LIMIT_EXCEEDED",
+                    java.util.Map.of("retryAfter", expire != null ? expire : 60));
         }
 
         redisTemplate.opsForValue().set(codeKey, code, 5, TimeUnit.MINUTES);
@@ -94,13 +110,11 @@ public class UserService {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getUsername(),
-                        request.getPassword()
-                )
-        );
+                        request.getPassword()));
         var user = userRepository.findByUsername(request.getUsername())
                 .or(() -> userRepository.findByEmail(request.getUsername()))
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
-        
+
         if (user.getStatus() == UserStatus.PENDING) {
             throw new BusinessException("ACCOUNT_PENDING");
         }
@@ -112,7 +126,8 @@ public class UserService {
         }
 
         if (user.isEmail2faEnabled() || user.getTotpSecret() != null) {
-            return new AuthResponse(null, true, user.getTotpSecret() != null, user.isEmail2faEnabled(), user.getEmail());
+            return new AuthResponse(null, true, user.getTotpSecret() != null, user.isEmail2faEnabled(),
+                    user.getEmail());
         }
 
         var jwtToken = jwtService.generateToken(user);
@@ -131,7 +146,7 @@ public class UserService {
                 verified = true;
             }
         }
-        
+
         if (!verified && user.isEmail2faEnabled()) {
             verifyCode(user.getEmail(), code);
             verified = true;
@@ -148,9 +163,9 @@ public class UserService {
     public TotpSetupResponse setupTotp(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
-        
+
         String secret = totpSecretGenerator.generate();
-        
+
         QrData data = new QrData.Builder()
                 .label(user.getEmail())
                 .secret(secret)
@@ -159,14 +174,14 @@ public class UserService {
                 .digits(6)
                 .period(30)
                 .build();
-        
+
         return new TotpSetupResponse(secret, data.getUri());
     }
 
-    public record TotpSetupResponse(String secret, String uri) {}
+    public record TotpSetupResponse(String secret, String uri) {
+    }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public void confirmTotp(Long userId, String secret, String code) {
         if (!totpVerifier.isValidCode(secret, code)) {
             throw new BusinessException("INVALID_2FA_CODE");
@@ -178,7 +193,6 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public void disableTotp(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
@@ -187,24 +201,22 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public void toggleTwoFactor(Long id, boolean enabled, String code) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
-        
+
         if (enabled) {
             if (code == null || code.isBlank()) {
                 throw new BusinessException("VERIFICATION_CODE_REQUIRED");
             }
             verifyCode(user.getEmail(), code);
         }
-        
+
         user.setEmail2faEnabled(enabled);
         userRepository.save(user);
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public void resetTwoFactor(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
@@ -216,16 +228,16 @@ public class UserService {
     public void logout(String token) {
         if (token != null && token.startsWith("Bearer ")) {
             String jwt = token.substring(7);
-            java.util.Date expirationDate = jwtService.extractExpiration(jwt);
-            tokenBlacklistRepository.save(new cafe.shigure.ShigureCafeBackened.model.TokenBlacklist(jwt, expirationDate));
+            long expirationDate = jwtService.extractExpiration(jwt);
+            tokenBlacklistRepository
+                    .save(new cafe.shigure.ShigureCafeBackened.model.TokenBlacklist(jwt, expirationDate));
         }
     }
 
     @Transactional
-    @CacheEvict(value = "audits", allEntries = true)
     public String register(RegisterRequest request) {
         Optional<User> existingUser = userRepository.findByUsername(request.getUsername());
-        
+
         if (existingUser.isPresent()) {
             User user = existingUser.get();
             if (user.getStatus() == UserStatus.ACTIVE) {
@@ -236,16 +248,16 @@ public class UserService {
             }
             // User is PENDING, verify code and refresh audit code
             verifyCode(request.getEmail(), request.getVerificationCode());
-            
+
             // Check existing audit
             UserAudit audit = userAuditRepository.findByUserId(user.getId())
                     .orElse(new UserAudit(user, UUID.randomUUID().toString(), 7));
-            
+
             // Always refresh code and expiry if re-registering
             audit.setAuditCode(UUID.randomUUID().toString());
-            audit.setExpiryDate(LocalDateTime.now().plusDays(7));
+            audit.setExpiryDate(System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000);
             userAuditRepository.save(audit);
-            
+
             return audit.getAuditCode();
         }
 
@@ -259,13 +271,14 @@ public class UserService {
         // 创建用户
         User user = new User();
         user.setUsername(request.getUsername());
-        user.setNickname(request.getNickname() != null && !request.getNickname().isBlank() 
-                ? request.getNickname() : request.getUsername());
+        user.setNickname(request.getNickname() != null && !request.getNickname().isBlank()
+                ? request.getNickname()
+                : request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(Role.USER);
         user.setStatus(UserStatus.PENDING);
-        
+
         userRepository.save(user);
 
         // 生成审核码 (7天有效)
@@ -277,7 +290,6 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public void resetPasswordByEmail(cafe.shigure.ShigureCafeBackened.dto.ResetPasswordRequest request) {
         verifyCode(request.getEmail(), request.getVerificationCode());
 
@@ -287,7 +299,7 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
     }
-    
+
     private void verifyCode(String email, String code) {
         String codeKey = "verify:code:" + email;
         String storedCode = redisTemplate.opsForValue().get(codeKey);
@@ -303,7 +315,7 @@ public class UserService {
         // 验证通过，删除验证码（防止复用）
         redisTemplate.delete(codeKey);
     }
-    
+
     public User getUserByAuditCode(String auditCode) {
         UserAudit audit = userAuditRepository.findByAuditCode(auditCode)
                 .orElseThrow(() -> new BusinessException("INVALID_AUDIT_CODE"));
@@ -316,11 +328,14 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    // @Cacheable(value = "audits", key = "#pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort.toString()")
-    public cafe.shigure.ShigureCafeBackened.dto.PagedResponse<cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse> getAuditsPaged(Pageable pageable) {
-        Page<cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse> page = userAuditRepository.findAll(pageable)
+    public cafe.shigure.ShigureCafeBackened.dto.PagedResponse<cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse> getAuditsPaged(
+            Pageable pageable) {
+        Page<cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse> page = userAuditRepository
+                .findAll(pageable)
                 .map(this::mapToRegistrationDetailsResponse);
-        return cafe.shigure.ShigureCafeBackened.dto.PagedResponse.fromPage(page);
+        Long timestamp = userAuditRepository.findMaxUpdatedAt()
+                .orElse(0L);
+        return cafe.shigure.ShigureCafeBackened.dto.PagedResponse.fromPage(page, timestamp);
     }
 
     public cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse getRegistrationDetails(String auditCode) {
@@ -329,7 +344,8 @@ public class UserService {
         return mapToRegistrationDetailsResponse(audit);
     }
 
-    public cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse mapToRegistrationDetailsResponse(UserAudit audit) {
+    public cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse mapToRegistrationDetailsResponse(
+            UserAudit audit) {
         User user = audit.getUser();
         return new cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse(
                 user.getUsername(),
@@ -337,18 +353,16 @@ public class UserService {
                 user.getEmail(),
                 user.getStatus(),
                 audit.getAuditCode(),
-                audit.isExpired()
-        );
+                audit.isExpired());
     }
 
     @Transactional
-    @CacheEvict(value = {"audits", "users"}, allEntries = true)
     public void approveUser(String auditCode) {
         UserAudit audit = userAuditRepository.findByAuditCode(auditCode)
                 .orElseThrow(() -> new BusinessException("INVALID_AUDIT_CODE"));
-        
+
         if (audit.isExpired()) {
-             throw new BusinessException("AUDIT_CODE_EXPIRED");
+            throw new BusinessException("AUDIT_CODE_EXPIRED");
         }
 
         User user = audit.getUser();
@@ -357,13 +371,12 @@ public class UserService {
         }
         user.setStatus(UserStatus.ACTIVE);
         userRepository.save(user);
-        
+
         // Remove audit record after successful approval
         userAuditRepository.delete(audit);
     }
 
     @Transactional
-    @CacheEvict(value = {"audits", "users"}, allEntries = true)
     public void banUser(String auditCode) {
         UserAudit audit = userAuditRepository.findByAuditCode(auditCode)
                 .orElseThrow(() -> new BusinessException("INVALID_AUDIT_CODE"));
@@ -376,7 +389,6 @@ public class UserService {
         userAuditRepository.delete(audit);
     }
 
-    @CacheEvict(value = "users", allEntries = true)
     public void deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
             throw new BusinessException("USER_NOT_FOUND");
@@ -384,7 +396,6 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
-    @CacheEvict(value = "users", allEntries = true)
     public void changePassword(Long id, String oldPassword, String newPassword) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
@@ -397,7 +408,6 @@ public class UserService {
         userRepository.save(user);
     }
 
-    @CacheEvict(value = "users", allEntries = true)
     public void resetPassword(Long id, String newPassword) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
@@ -406,13 +416,12 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public void updateEmail(Long id, String newEmail, String verificationCode) {
         verifyCode(newEmail, verificationCode);
 
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
-        
+
         // 检查新邮箱是否已被使用 (排除自己)
         userRepository.findByEmail(newEmail).ifPresent(existingUser -> {
             if (!existingUser.getId().equals(id)) {
@@ -425,7 +434,6 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public void updateEmailDirectly(Long id, String newEmail) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
@@ -442,7 +450,6 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public void updateRole(Long id, Role newRole) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
@@ -451,7 +458,6 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public void updateStatus(Long id, UserStatus newStatus) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
@@ -463,11 +469,13 @@ public class UserService {
         return userRepository.findAll();
     }
 
-    // @Cacheable(value = "users", key = "#pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort.toString()")
-    public cafe.shigure.ShigureCafeBackened.dto.PagedResponse<cafe.shigure.ShigureCafeBackened.dto.UserResponse> getUsersPaged(Pageable pageable) {
+    public cafe.shigure.ShigureCafeBackened.dto.PagedResponse<cafe.shigure.ShigureCafeBackened.dto.UserResponse> getUsersPaged(
+            Pageable pageable) {
         Page<cafe.shigure.ShigureCafeBackened.dto.UserResponse> page = userRepository.findAll(pageable)
                 .map(this::mapToUserResponse);
-        return cafe.shigure.ShigureCafeBackened.dto.PagedResponse.fromPage(page);
+        Long timestamp = userRepository.findMaxUpdatedAt()
+                .orElse(System.currentTimeMillis());
+        return cafe.shigure.ShigureCafeBackened.dto.PagedResponse.fromPage(page, timestamp);
     }
 
     public cafe.shigure.ShigureCafeBackened.dto.UserResponse mapToUserResponse(User user) {
@@ -482,24 +490,20 @@ public class UserService {
                 user.isEmail2faEnabled(),
                 totpEnabled,
                 user.getMinecraftUuid(),
-                user.getMinecraftUsername()
-        );
+                user.getMinecraftUsername());
     }
 
-    @Cacheable(value = "users", key = "'id-' + #id")
     public User getUserById(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
     }
 
-    @Cacheable(value = "users", key = "'username-' + #username")
     public User getUserByUsername(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public void updateNickname(Long id, String nickname) {
         if (nickname != null && nickname.length() > 50) {
             throw new BusinessException("NICKNAME_TOO_LONG", java.util.Map.of("maxLength", 50));
@@ -511,7 +515,6 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
     public void updateMinecraftInfo(Long id, String uuid, String username) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
@@ -521,8 +524,8 @@ public class UserService {
     }
 
     @Transactional
-    @CacheEvict(value = "users", allEntries = true)
-    public void refreshMinecraftUsername(Long id, cafe.shigure.ShigureCafeBackened.service.MinecraftAuthService minecraftAuthService) {
+    public void refreshMinecraftUsername(Long id,
+            cafe.shigure.ShigureCafeBackened.service.MinecraftAuthService minecraftAuthService) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
         if (user.getMinecraftUuid() == null) {
@@ -532,6 +535,5 @@ public class UserService {
         user.setMinecraftUsername(currentUsername);
         userRepository.save(user);
     }
-
 
 }

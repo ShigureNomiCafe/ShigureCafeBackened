@@ -7,14 +7,11 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
-@Data // Lombok 自动生成 Getter/Setter/ToString
+@Data
 @Entity
 @Table(name = "users")
 public class User implements UserDetails {
@@ -32,6 +29,7 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+    @Column(unique = true, nullable = false)
     private String email;
 
     @Enumerated(EnumType.STRING)
@@ -48,19 +46,18 @@ public class User implements UserDetails {
     @Column(unique = true, length = 36, columnDefinition = "char(36)")
     private String minecraftUuid;
 
+    @Column(length = 32)
     private String minecraftUsername;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<NoticeReaction> reactions = new ArrayList<>();
 
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+    @Column(updatable = false, nullable = false)
+    private long createdAt;
 
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
+    @Column(nullable = false)
+    private long updatedAt;
 
-    // 以下是 UserDetails 接口需要实现的方法，用于 Spring Security
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(role.name()));
@@ -74,4 +71,16 @@ public class User implements UserDetails {
     public boolean isCredentialsNonExpired() { return true; }
     @Override
     public boolean isEnabled() { return true; }
+
+    @PrePersist
+    protected void onCreate() {
+        long now = System.currentTimeMillis();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = System.currentTimeMillis();
+    }
 }

@@ -3,10 +3,6 @@ package cafe.shigure.ShigureCafeBackened.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,17 +32,28 @@ public class Notice {
     @OneToMany(mappedBy = "notice", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<NoticeReaction> reactions = new ArrayList<>();
 
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+    @Column(updatable = false, nullable = false)
+    private long createdAt;
 
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
+    @Column(nullable = false)
+    private long updatedAt;
 
     public Notice(String title, String content, boolean pinned, User author) {
         this.title = title;
         this.content = content;
         this.pinned = pinned;
         this.author = author;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        long now = System.currentTimeMillis();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = System.currentTimeMillis();
     }
 }

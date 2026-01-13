@@ -4,10 +4,6 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
 @Data
 @Entity
 @NoArgsConstructor
@@ -26,22 +22,33 @@ public class UserAudit {
     private String auditCode;
 
     @Column(nullable = false)
-    private LocalDateTime expiryDate;
+    private long expiryDate;
 
-    @CreationTimestamp
-    @Column(updatable = false)
-    private LocalDateTime createdAt;
+    @Column(updatable = false, nullable = false)
+    private long createdAt;
 
-    @UpdateTimestamp
-    private LocalDateTime updatedAt;
+    @Column(nullable = false)
+    private long updatedAt;
 
     public UserAudit(User user, String auditCode, int expirationDays) {
         this.user = user;
         this.auditCode = auditCode;
-        this.expiryDate = LocalDateTime.now().plusDays(expirationDays);
+        this.expiryDate = System.currentTimeMillis() + (long) expirationDays * 24 * 60 * 60 * 1000;
     }
 
     public boolean isExpired() {
-        return LocalDateTime.now().isAfter(expiryDate);
+        return System.currentTimeMillis() > expiryDate;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        long now = System.currentTimeMillis();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = System.currentTimeMillis();
     }
 }

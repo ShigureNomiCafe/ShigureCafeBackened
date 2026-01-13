@@ -36,7 +36,8 @@ public class RegistrationController {
     }
 
     @GetMapping
-    public ResponseEntity<PagedResponse<RegistrationDetailsResponse>> getAllRegistrations(
+    public ResponseEntity<?> getAllRegistrations(
+            @RequestParam(required = false) Long t,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "expiryDate") String sortBy,
@@ -44,6 +45,10 @@ public class RegistrationController {
             @AuthenticationPrincipal User currentUser) {
         if (currentUser == null || currentUser.getRole() != Role.ADMIN) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        if (userService.checkAuditsNotModified(t)) {
+             return ResponseEntity.status(HttpStatus.NOT_MODIFIED).build();
         }
         
         Sort sort = direction.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();

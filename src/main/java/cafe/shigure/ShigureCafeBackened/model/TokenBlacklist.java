@@ -4,8 +4,6 @@ import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Date;
-
 @Data
 @NoArgsConstructor
 @Entity
@@ -20,9 +18,9 @@ public class TokenBlacklist {
     private String token;
 
     @Column(nullable = false)
-    private Date expirationDate;
+    private long expirationDate;
 
-    public TokenBlacklist(String token, Date expirationDate) {
+    public TokenBlacklist(String token, long expirationDate) {
         this.token = token;
         this.expirationDate = expirationDate;
     }

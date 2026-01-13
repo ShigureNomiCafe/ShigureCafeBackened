@@ -10,12 +10,11 @@ import cafe.shigure.ShigureCafeBackened.repository.NoticeReactionRepository;
 import cafe.shigure.ShigureCafeBackened.repository.NoticeRepository;
 import cafe.shigure.ShigureCafeBackened.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import cafe.shigure.ShigureCafeBackened.dto.PagedResponse;
 
 import java.util.List;
 import java.util.Map;
@@ -27,13 +26,25 @@ import java.util.stream.Collectors;
 public class NoticeService {
 
     private final NoticeRepository noticeRepository;
-    private final NoticeReactionRepository noticeReactionRepository;
     private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
-    public Page<NoticeResponse> getAllNotices(Pageable pageable, User currentUser) {
-        return noticeRepository.findAllByOrderByPinnedDescCreatedAtDesc(pageable)
+    public boolean checkModified(Long t) {
+        if (t == null) {
+            return true;
+        }
+        return noticeRepository.findMaxUpdatedAt()
+                .map(upd -> upd > t)
+                .orElse(true);
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<NoticeResponse> getAllNotices(Pageable pageable, User currentUser) {
+        Page<NoticeResponse> page = noticeRepository.findAllByOrderByPinnedDescUpdatedAtDesc(pageable)
                 .map(notice -> mapToResponse(notice, currentUser));
+        Long timestamp = noticeRepository.findMaxUpdatedAt()
+                .orElse(0L);
+        return PagedResponse.fromPage(page, timestamp);
     }
 
     @Transactional(readOnly = true)
@@ -46,7 +57,8 @@ public class NoticeService {
     @Transactional
     public NoticeResponse createNotice(NoticeRequest request, User author) {
         Notice notice = new Notice(request.getTitle(), request.getContent(), request.isPinned(), author);
-        // Force flush to ensure timestamps and ID are generated before mapping to response
+        // Force flush to ensure timestamps and ID are generated before mapping to
+        // response
         Notice savedNotice = noticeRepository.saveAndFlush(notice);
         return mapToResponse(savedNotice, author);
     }
@@ -55,11 +67,11 @@ public class NoticeService {
     public NoticeResponse updateNotice(Long id, NoticeRequest request, User currentUser) {
         Notice notice = noticeRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("NOTICE_NOT_FOUND"));
-        
+
         notice.setTitle(request.getTitle());
         notice.setContent(request.getContent());
         notice.setPinned(request.isPinned());
-        
+
         Notice updatedNotice = noticeRepository.saveAndFlush(notice);
         return mapToResponse(updatedNotice, currentUser);
     }
@@ -77,10 +89,12 @@ public class NoticeService {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new BusinessException("NOTICE_NOT_FOUND"));
 
-        // Use noticeRepository to get managed user if possible, or just use the passed user
-        // Actually, better to use userRepository if we want to be 100% sure it's managed
+        // Use noticeRepository to get managed user if possible, or just use the passed
+        // user
+        // Actually, better to use userRepository if we want to be 100% sure it's
+        // managed
         // But let's try to just ensure we compare by ID correctly.
-        
+
         Optional<NoticeReaction> reactionOpt = notice.getReactions().stream()
                 .filter(r -> r.getUser().getId().equals(user.getId()) && r.getEmoji().equals(emoji))
                 .findFirst();
@@ -94,17 +108,17 @@ public class NoticeService {
             NoticeReaction reaction = new NoticeReaction(notice, managedUser, emoji);
             notice.getReactions().add(reaction);
         }
-        
+
         Notice savedNotice = noticeRepository.saveAndFlush(notice);
         return mapToResponse(savedNotice, user);
     }
 
     private NoticeResponse mapToResponse(Notice notice, User currentUser) {
         List<NoticeReaction> reactions = notice.getReactions();
-        
+
         Map<String, Long> counts = reactions.stream()
                 .collect(Collectors.groupingBy(NoticeReaction::getEmoji, Collectors.counting()));
-        
+
         List<String> userEmojis = reactions.stream()
                 .filter(r -> r.getUser().getId().equals(currentUser.getId()))
                 .map(NoticeReaction::getEmoji)

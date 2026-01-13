@@ -15,8 +15,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/notices")
 @RequiredArgsConstructor
@@ -25,10 +23,14 @@ public class NoticeController {
     private final NoticeService noticeService;
 
     @GetMapping
-    public ResponseEntity<Page<NoticeResponse>> getAllNotices(
+    public ResponseEntity<?> getAllNotices(
+            @RequestParam(required = false) Long t,
             @PageableDefault(size = 10) Pageable pageable,
             @AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(noticeService.getAllNotices(pageable, currentUser));
+        if (noticeService.checkModified(t)) {
+            return ResponseEntity.ok(noticeService.getAllNotices(pageable, currentUser));
+        }
+        return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_MODIFIED).build();
     }
 
     @GetMapping("/{id}")

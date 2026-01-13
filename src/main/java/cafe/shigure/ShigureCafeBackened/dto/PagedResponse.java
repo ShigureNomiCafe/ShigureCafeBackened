@@ -17,15 +17,20 @@ public class PagedResponse<T> {
     private long totalElements;
     private int totalPages;
     private boolean last;
+    private Long timestamp;
 
     public static <T> PagedResponse<T> fromPage(Page<T> page) {
+        return fromPage(page, System.currentTimeMillis());
+    }
+
+    public static <T> PagedResponse<T> fromPage(Page<T> page, Long timestamp) {
         return new PagedResponse<>(
                 page.getContent(),
                 page.getNumber(),
                 page.getSize(),
                 page.getTotalElements(),
                 page.getTotalPages(),
-                page.isLast()
-        );
+                page.isLast(),
+                timestamp);
     }
 }
