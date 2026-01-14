@@ -8,17 +8,17 @@ import cafe.shigure.ShigureCafeBackened.model.User;
 import cafe.shigure.ShigureCafeBackened.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.SortDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -40,8 +40,6 @@ public class RegistrationController {
     public ResponseEntity<?> getAllRegistrations(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "user.username") String sortBy,
-            @RequestParam(defaultValue = "asc") String direction,
             @AuthenticationPrincipal User currentUser) {
         if (currentUser == null || currentUser.getRole() != Role.ADMIN) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -50,8 +48,7 @@ public class RegistrationController {
         String identifier = currentUser.getId().toString();
         rateLimitService.checkRateLimit("audits:list:" + identifier, 1);
         
-        Sort sort = direction.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = PageRequest.of(page, size, Sort.by("user.username").ascending());
         
         PagedResponse<RegistrationDetailsResponse> auditPage = userService.getAuditsPaged(pageable);
         

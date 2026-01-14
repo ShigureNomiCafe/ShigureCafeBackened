@@ -46,9 +46,9 @@ public class NoticeService {
     }
 
     @Transactional(readOnly = true)
-    public PagedResponse<NoticeResponse> getAllNotices(Pageable pageable, User currentUser) {
+    public PagedResponse<NoticeResponse> getAllNotices(Pageable pageable) {
         Page<NoticeResponse> page = noticeRepository.findAllByOrderByPinnedDescUpdatedAtDesc(pageable)
-                .map(notice -> mapToResponse(notice, currentUser));
+                .map(notice -> mapToResponse(notice));
         Long timestamp = getGlobalNoticeListTimestamp();
         if (timestamp == 0L) {
             timestamp = System.currentTimeMillis();
@@ -58,10 +58,10 @@ public class NoticeService {
     }
 
     @Transactional(readOnly = true)
-    public NoticeResponse getNoticeById(Long id, User currentUser) {
+    public NoticeResponse getNoticeById(Long id) {
         Notice notice = noticeRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("NOTICE_NOT_FOUND"));
-        return mapToResponse(notice, currentUser);
+        return mapToResponse(notice);
     }
 
     @Transactional
@@ -71,7 +71,7 @@ public class NoticeService {
         // response
         Notice savedNotice = noticeRepository.saveAndFlush(notice);
         updateGlobalNoticeListTimestamp();
-        return mapToResponse(savedNotice, author);
+        return mapToResponse(savedNotice);
     }
 
     @Transactional
@@ -85,7 +85,7 @@ public class NoticeService {
 
         Notice updatedNotice = noticeRepository.saveAndFlush(notice);
         updateGlobalNoticeListTimestamp();
-        return mapToResponse(updatedNotice, currentUser);
+        return mapToResponse(updatedNotice);
     }
 
     @Transactional
@@ -168,7 +168,7 @@ public class NoticeService {
                 .collect(Collectors.toList());
     }
 
-    private NoticeResponse mapToResponse(Notice notice, User currentUser) {
+    private NoticeResponse mapToResponse(Notice notice) {
         return NoticeResponse.builder()
                 .id(notice.getId())
                 .title(notice.getTitle())

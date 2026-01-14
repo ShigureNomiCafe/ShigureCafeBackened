@@ -2,7 +2,9 @@ package cafe.shigure.ShigureCafeBackened.service;
 
 import cafe.shigure.ShigureCafeBackened.dto.AuthResponse;
 import cafe.shigure.ShigureCafeBackened.dto.LoginRequest;
+import cafe.shigure.ShigureCafeBackened.dto.PagedResponse;
 import cafe.shigure.ShigureCafeBackened.dto.RegisterRequest;
+import cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse;
 import cafe.shigure.ShigureCafeBackened.exception.BusinessException;
 import cafe.shigure.ShigureCafeBackened.model.Role;
 import cafe.shigure.ShigureCafeBackened.model.User;
@@ -336,9 +338,9 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
-    public cafe.shigure.ShigureCafeBackened.dto.PagedResponse<cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse> getAuditsPaged(
+    public PagedResponse<RegistrationDetailsResponse> getAuditsPaged(
             Pageable pageable) {
-        Page<cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse> page = userAuditRepository
+        Page<RegistrationDetailsResponse> page = userAuditRepository
                 .findAll(pageable)
                 .map(this::mapToRegistrationDetailsResponse);
         Long timestamp = getGlobalAuditListTimestamp();
@@ -346,19 +348,19 @@ public class UserService {
             timestamp = System.currentTimeMillis();
             updateGlobalAuditListTimestamp();
         }
-        return cafe.shigure.ShigureCafeBackened.dto.PagedResponse.fromPage(page, timestamp);
+        return PagedResponse.fromPage(page, timestamp);
     }
 
-    public cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse getRegistrationDetails(String auditCode) {
+    public RegistrationDetailsResponse getRegistrationDetails(String auditCode) {
         UserAudit audit = userAuditRepository.findByAuditCode(auditCode)
                 .orElseThrow(() -> new BusinessException("INVALID_AUDIT_CODE"));
         return mapToRegistrationDetailsResponse(audit);
     }
 
-    public cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse mapToRegistrationDetailsResponse(
+    public RegistrationDetailsResponse mapToRegistrationDetailsResponse(
             UserAudit audit) {
         User user = audit.getUser();
-        return new cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse(
+        return new RegistrationDetailsResponse(
                 user.getUsername(),
                 user.getNickname(),
                 user.getEmail(),

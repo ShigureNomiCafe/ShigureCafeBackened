@@ -36,16 +36,13 @@ public class UserResourceController {
     public ResponseEntity<?> getUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "username") String sortBy,
-            @RequestParam(defaultValue = "asc") String direction,
             @AuthenticationPrincipal User currentUser) {
         
         if (currentUser != null) {
             rateLimitService.checkRateLimit("users:list:" + currentUser.getId(), 1);
         }
         
-        Sort sort = direction.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+        Pageable pageable = PageRequest.of(page, size, Sort.by("username").ascending());
         
         PagedResponse<UserResponse> userPage = userService.getUsersPaged(pageable);
         

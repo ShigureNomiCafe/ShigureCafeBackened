@@ -8,7 +8,6 @@ import cafe.shigure.ShigureCafeBackened.model.User;
 import cafe.shigure.ShigureCafeBackened.service.NoticeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -34,15 +33,14 @@ public class NoticeController {
         if (currentUser != null) {
             rateLimitService.checkRateLimit("notices:list:" + currentUser.getId(), 1);
         }
-        
-        return ResponseEntity.ok(noticeService.getAllNotices(pageable, currentUser));
+        return ResponseEntity.ok(noticeService.getAllNotices(pageable));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<NoticeResponse> getNoticeById(
             @PathVariable Long id,
             @AuthenticationPrincipal User currentUser) {
-        return ResponseEntity.ok(noticeService.getNoticeById(id, currentUser));
+        return ResponseEntity.ok(noticeService.getNoticeById(id));
     }
 
     @PostMapping
