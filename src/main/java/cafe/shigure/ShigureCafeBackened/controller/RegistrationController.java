@@ -40,7 +40,7 @@ public class RegistrationController {
             @RequestParam(required = false) Long t,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "expiryDate") String sortBy,
+            @RequestParam(defaultValue = "user.username") String sortBy,
             @RequestParam(defaultValue = "asc") String direction,
             @AuthenticationPrincipal User currentUser) {
         if (currentUser == null || currentUser.getRole() != Role.ADMIN) {

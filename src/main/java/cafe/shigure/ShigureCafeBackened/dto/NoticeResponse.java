@@ -18,17 +18,6 @@ public class NoticeResponse implements Serializable {
     private String content;
     private boolean pinned;
     private String authorNickname;
-    private List<ReactionCount> reactions;
     private long createdAt;
     private long updatedAt;
-
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class ReactionCount implements Serializable {
-        private String emoji;
-        private Long count;
-        private boolean reacted;
-    }
 }

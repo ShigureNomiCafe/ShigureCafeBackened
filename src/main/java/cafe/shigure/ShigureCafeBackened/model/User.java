@@ -55,9 +55,6 @@ public class User implements UserDetails {
     @Column(updatable = false, nullable = false)
     private long createdAt;
 
-    @Column(nullable = false)
-    private long updatedAt;
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(role.name()));
@@ -74,13 +71,6 @@ public class User implements UserDetails {
 
     @PrePersist
     protected void onCreate() {
-        long now = System.currentTimeMillis();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = System.currentTimeMillis();
+        this.createdAt = System.currentTimeMillis();
     }
 }

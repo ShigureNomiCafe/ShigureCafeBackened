@@ -8,7 +8,4 @@ import java.util.Optional;
 public interface UserAuditRepository extends JpaRepository<UserAudit, Long> {
     Optional<UserAudit> findByAuditCode(String auditCode);
     Optional<UserAudit> findByUserId(Long userId);
-
-    @Query("SELECT MAX(ua.updatedAt) FROM UserAudit ua")
-    Optional<Long> findMaxUpdatedAt();
 }

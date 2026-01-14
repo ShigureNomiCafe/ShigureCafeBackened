@@ -54,14 +54,34 @@ public class UserService {
             new DefaultCodeGenerator(),
             new SystemTimeProvider());
 
+    private static final String USER_LIST_LAST_UPDATED_KEY = "user_list:last_updated";
+    private static final String AUDIT_LIST_LAST_UPDATED_KEY = "audit_list:last_updated";
+
+    private void updateGlobalUserListTimestamp() {
+        redisTemplate.opsForValue().set(USER_LIST_LAST_UPDATED_KEY, String.valueOf(System.currentTimeMillis()));
+    }
+
+    private Long getGlobalUserListTimestamp() {
+        String ts = redisTemplate.opsForValue().get(USER_LIST_LAST_UPDATED_KEY);
+        return ts != null ? Long.parseLong(ts) : 0L;
+    }
+
+    private void updateGlobalAuditListTimestamp() {
+        redisTemplate.opsForValue().set(AUDIT_LIST_LAST_UPDATED_KEY, String.valueOf(System.currentTimeMillis()));
+    }
+
+    private Long getGlobalAuditListTimestamp() {
+        String ts = redisTemplate.opsForValue().get(AUDIT_LIST_LAST_UPDATED_KEY);
+        return ts != null ? Long.parseLong(ts) : 0L;
+    }
+
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public boolean checkUsersModified(Long t) {
         if (t == null) {
             return true;
         }
-        return userRepository.findMaxUpdatedAt()
-                .map(upd -> upd > t)
-                .orElse(true);
+        Long lastUpdated = getGlobalUserListTimestamp();
+        return lastUpdated > t;
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
@@ -69,9 +89,8 @@ public class UserService {
         if (t == null) {
             return false;
         }
-        return userAuditRepository.findMaxUpdatedAt()
-                .map(upd -> upd <= t)
-                .orElse(t >= 0);
+        Long lastUpdated = getGlobalAuditListTimestamp();
+        return lastUpdated <= t;
     }
 
     @Transactional
@@ -190,6 +209,7 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
         user.setTotpSecret(secret);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
     }
 
     @Transactional
@@ -198,6 +218,7 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
         user.setTotpSecret(null);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
     }
 
     @Transactional
@@ -214,6 +235,7 @@ public class UserService {
 
         user.setEmail2faEnabled(enabled);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
     }
 
     @Transactional
@@ -223,6 +245,7 @@ public class UserService {
         user.setEmail2faEnabled(false);
         user.setTotpSecret(null);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
     }
 
     public void logout(String token) {
@@ -257,6 +280,7 @@ public class UserService {
             audit.setAuditCode(UUID.randomUUID().toString());
             audit.setExpiryDate(System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000);
             userAuditRepository.save(audit);
+            updateGlobalAuditListTimestamp();
 
             return audit.getAuditCode();
         }
@@ -280,11 +304,13 @@ public class UserService {
         user.setStatus(UserStatus.PENDING);
 
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
 
         // 生成审核码 (7天有效)
         String auditCode = UUID.randomUUID().toString();
         UserAudit userAudit = new UserAudit(user, auditCode, 7);
         userAuditRepository.save(userAudit);
+        updateGlobalAuditListTimestamp();
 
         return auditCode;
     }
@@ -333,8 +359,11 @@ public class UserService {
         Page<cafe.shigure.ShigureCafeBackened.dto.RegistrationDetailsResponse> page = userAuditRepository
                 .findAll(pageable)
                 .map(this::mapToRegistrationDetailsResponse);
-        Long timestamp = userAuditRepository.findMaxUpdatedAt()
-                .orElse(0L);
+        Long timestamp = getGlobalAuditListTimestamp();
+        if (timestamp == 0L) {
+            timestamp = System.currentTimeMillis();
+            updateGlobalAuditListTimestamp();
+        }
         return cafe.shigure.ShigureCafeBackened.dto.PagedResponse.fromPage(page, timestamp);
     }
 
@@ -371,9 +400,11 @@ public class UserService {
         }
         user.setStatus(UserStatus.ACTIVE);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
 
         // Remove audit record after successful approval
         userAuditRepository.delete(audit);
+        updateGlobalAuditListTimestamp();
     }
 
     @Transactional
@@ -384,9 +415,11 @@ public class UserService {
         User user = audit.getUser();
         user.setStatus(UserStatus.BANNED);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
 
         // Remove audit record after banning
         userAuditRepository.delete(audit);
+        updateGlobalAuditListTimestamp();
     }
 
     public void deleteUser(Long id) {
@@ -394,6 +427,7 @@ public class UserService {
             throw new BusinessException("USER_NOT_FOUND");
         }
         userRepository.deleteById(id);
+        updateGlobalUserListTimestamp();
     }
 
     public void changePassword(Long id, String oldPassword, String newPassword) {
@@ -406,6 +440,7 @@ public class UserService {
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
+        // Password change doesn't necessarily change the list view, but better safe.
     }
 
     public void resetPassword(Long id, String newPassword) {
@@ -431,6 +466,7 @@ public class UserService {
 
         user.setEmail(newEmail);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
     }
 
     @Transactional
@@ -447,6 +483,7 @@ public class UserService {
 
         user.setEmail(newEmail);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
     }
 
     @Transactional
@@ -455,6 +492,7 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
         user.setRole(newRole);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
     }
 
     @Transactional
@@ -463,18 +501,22 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
         user.setStatus(newStatus);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
     }
 
     public java.util.List<User> getAllUsers() {
-        return userRepository.findAll();
+        return userRepository.findAll(org.springframework.data.domain.Sort.by("username"));
     }
 
     public cafe.shigure.ShigureCafeBackened.dto.PagedResponse<cafe.shigure.ShigureCafeBackened.dto.UserResponse> getUsersPaged(
             Pageable pageable) {
         Page<cafe.shigure.ShigureCafeBackened.dto.UserResponse> page = userRepository.findAll(pageable)
                 .map(this::mapToUserResponse);
-        Long timestamp = userRepository.findMaxUpdatedAt()
-                .orElse(System.currentTimeMillis());
+        Long timestamp = getGlobalUserListTimestamp();
+        if (timestamp == 0L) {
+            timestamp = System.currentTimeMillis();
+            updateGlobalUserListTimestamp();
+        }
         return cafe.shigure.ShigureCafeBackened.dto.PagedResponse.fromPage(page, timestamp);
     }
 
@@ -512,6 +554,7 @@ public class UserService {
                 .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
         user.setNickname(nickname);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
     }
 
     @Transactional
@@ -521,6 +564,7 @@ public class UserService {
         user.setMinecraftUuid(uuid);
         user.setMinecraftUsername(username);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
     }
 
     @Transactional
@@ -534,6 +578,7 @@ public class UserService {
         String currentUsername = minecraftAuthService.getMinecraftUsername(user.getMinecraftUuid());
         user.setMinecraftUsername(currentUsername);
         userRepository.save(user);
+        updateGlobalUserListTimestamp();
     }
 
 }

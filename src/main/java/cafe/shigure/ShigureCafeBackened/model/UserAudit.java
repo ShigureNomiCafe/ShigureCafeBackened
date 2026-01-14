@@ -27,9 +27,6 @@ public class UserAudit {
     @Column(updatable = false, nullable = false)
     private long createdAt;
 
-    @Column(nullable = false)
-    private long updatedAt;
-
     public UserAudit(User user, String auditCode, int expirationDays) {
         this.user = user;
         this.auditCode = auditCode;
@@ -42,13 +39,6 @@ public class UserAudit {
 
     @PrePersist
     protected void onCreate() {
-        long now = System.currentTimeMillis();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = System.currentTimeMillis();
+        this.createdAt = System.currentTimeMillis();
     }
 }

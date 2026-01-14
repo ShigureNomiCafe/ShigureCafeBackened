@@ -14,5 +14,6 @@ public interface NoticeReactionRepository extends JpaRepository<NoticeReaction, 
     List<NoticeReaction> findByNotice(Notice notice);
     Optional<NoticeReaction> findByNoticeAndUserAndEmoji(Notice notice, User user, String emoji);
     List<NoticeReaction> findByNoticeAndUser(Notice notice, User user);
+    List<NoticeReaction> findByNoticeIn(List<Notice> notices);
     void deleteByNoticeAndUserAndEmoji(Notice notice, User user, String emoji);
 }

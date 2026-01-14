@@ -3,6 +3,7 @@ package cafe.shigure.ShigureCafeBackened.controller;
 import cafe.shigure.ShigureCafeBackened.dto.NoticeRequest;
 import cafe.shigure.ShigureCafeBackened.dto.NoticeResponse;
 import cafe.shigure.ShigureCafeBackened.dto.NoticeReactionRequest;
+import cafe.shigure.ShigureCafeBackened.dto.NoticeReactionDTO;
 import cafe.shigure.ShigureCafeBackened.model.User;
 import cafe.shigure.ShigureCafeBackened.service.NoticeService;
 import jakarta.validation.Valid;
@@ -14,6 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/notices")
@@ -64,8 +68,22 @@ public class NoticeController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/{id}/reactions")
+    public ResponseEntity<List<NoticeReactionDTO>> getReactions(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(noticeService.getReactions(id, currentUser));
+    }
+
+    @PostMapping("/reactions/batch")
+    public ResponseEntity<Map<Long, List<NoticeReactionDTO>>> getReactionsBatch(
+            @RequestBody List<Long> noticeIds,
+            @AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(noticeService.getReactionsBatch(noticeIds, currentUser));
+    }
+
     @PostMapping("/{id}/reactions")
-    public ResponseEntity<NoticeResponse> toggleReaction(
+    public ResponseEntity<List<NoticeReactionDTO>> toggleReaction(
             @PathVariable Long id,
             @Valid @RequestBody NoticeReactionRequest request,
             @AuthenticationPrincipal User currentUser) {
