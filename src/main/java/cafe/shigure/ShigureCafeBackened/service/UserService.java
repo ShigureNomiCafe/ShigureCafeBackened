@@ -440,6 +440,16 @@ public class UserService {
                 user.getAvatarUrl());
     }
 
+    public UserPublicResponse mapToUserPublicResponse(User user) {
+        return UserPublicResponse.builder()
+                .username(user.getUsername())
+                .nickname(user.getNickname())
+                .email(user.getEmail())
+                .minecraftUsername(user.getMinecraftUsername())
+                .avatarUrl(user.getAvatarUrl())
+                .build();
+    }
+
     @Transactional
     public void updateAvatar(Long id, String avatarUrl) {
         User user = userRepository.findById(id)
