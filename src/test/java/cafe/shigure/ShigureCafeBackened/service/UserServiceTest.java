@@ -45,6 +45,8 @@ class UserServiceTest {
     private TokenBlacklistRepository tokenBlacklistRepository;
     @Mock
     private CacheService cacheService;
+    @Mock
+    private RateLimitService rateLimitService;
 
     @InjectMocks
     private UserService userService;
@@ -57,11 +59,10 @@ class UserServiceTest {
     @Test
     void sendVerificationCode_shouldThrowException_whenRateLimited() {
         String email = "test@example.com";
-        String limitKey = "verify:limit:" + email;
 
         when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
-        when(redisTemplate.hasKey(limitKey)).thenReturn(true);
-        when(redisTemplate.getExpire(limitKey, TimeUnit.SECONDS)).thenReturn(30L);
+        doThrow(new BusinessException("RATE_LIMIT_EXCEEDED"))
+            .when(rateLimitService).checkRateLimit(eq("verify:" + email), anyLong());
 
         assertThrows(BusinessException.class, () -> userService.sendVerificationCode(email, "REGISTER"));
         
@@ -71,28 +72,25 @@ class UserServiceTest {
     @Test
     void sendVerificationCode_shouldSend_whenCooldownPassed() {
         String email = "test@example.com";
-        String limitKey = "verify:limit:" + email;
         
         when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
-        when(redisTemplate.hasKey(limitKey)).thenReturn(false);
 
         userService.sendVerificationCode(email, "REGISTER");
 
+        verify(rateLimitService).checkRateLimit(eq("verify:" + email), anyLong());
         verify(emailService).sendSimpleMessage(eq(email), any(), any());
         verify(valueOperations).set(eq("verify:code:" + email), anyString(), eq(5L), eq(TimeUnit.MINUTES));
-        verify(valueOperations).set(eq("verify:limit:" + email), eq("1"), eq(60L), eq(TimeUnit.SECONDS));
     }
     
     @Test
     void sendVerificationCode_shouldSend_whenNoPriorCode() {
         String email = "new@example.com";
-        String limitKey = "verify:limit:" + email;
         
         when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
-        when(redisTemplate.hasKey(limitKey)).thenReturn(false);
 
         userService.sendVerificationCode(email, "REGISTER");
 
+        verify(rateLimitService).checkRateLimit(eq("verify:" + email), anyLong());
         verify(emailService).sendSimpleMessage(eq(email), any(), any());
         verify(valueOperations).set(eq("verify:code:" + email), anyString(), eq(5L), eq(TimeUnit.MINUTES));
     }

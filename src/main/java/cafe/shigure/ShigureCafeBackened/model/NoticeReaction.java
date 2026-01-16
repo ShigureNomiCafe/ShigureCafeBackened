@@ -26,11 +26,10 @@ public class NoticeReaction {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ReactionType type;
+    private String type;
 
-    public NoticeReaction(Notice notice, User user, ReactionType type) {
+    public NoticeReaction(Notice notice, User user, String type) {
         this.notice = notice;
         this.user = user;
         this.type = type;

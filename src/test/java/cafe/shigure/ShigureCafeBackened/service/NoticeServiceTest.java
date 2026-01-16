@@ -63,8 +63,8 @@ class NoticeServiceTest {
 
     @Test
     void toggleReaction_shouldAddSecondReactionSuccessfully() {
-        ReactionType type1 = ReactionType.THUMBS_UP;
-        ReactionType type2 = ReactionType.HEART;
+        String type1 = ReactionType.THUMBS_UP.name();
+        String type2 = ReactionType.HEART.name();
 
         when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -100,7 +100,7 @@ class NoticeServiceTest {
 
     @Test
     void toggleReaction_shouldRemoveReaction_whenSameEmojiToggled() {
-        ReactionType type = ReactionType.THUMBS_UP;
+        String type = ReactionType.THUMBS_UP.name();
         NoticeReaction reaction = new NoticeReaction(notice, user, type);
         
         when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
@@ -114,7 +114,7 @@ class NoticeServiceTest {
 
     @Test
     void toggleReaction_shouldNotUpdateTimestamp() {
-        ReactionType type = ReactionType.THUMBS_UP;
+        String type = ReactionType.THUMBS_UP.name();
         long oldTimestamp = System.currentTimeMillis() - 10000;
         notice.setUpdatedAt(oldTimestamp);
 

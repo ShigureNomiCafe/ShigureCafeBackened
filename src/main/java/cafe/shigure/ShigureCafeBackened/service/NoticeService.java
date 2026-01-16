@@ -4,7 +4,6 @@ import cafe.shigure.ShigureCafeBackened.dto.*;
 import cafe.shigure.ShigureCafeBackened.exception.BusinessException;
 import cafe.shigure.ShigureCafeBackened.model.Notice;
 import cafe.shigure.ShigureCafeBackened.model.NoticeReaction;
-import cafe.shigure.ShigureCafeBackened.model.ReactionType;
 import cafe.shigure.ShigureCafeBackened.model.User;
 import cafe.shigure.ShigureCafeBackened.repository.NoticeReactionRepository;
 import cafe.shigure.ShigureCafeBackened.repository.NoticeRepository;
@@ -73,7 +72,7 @@ public class NoticeService {
     }
 
     @Transactional
-    public List<NoticeReactionDTO> toggleReaction(Long noticeId, User user, ReactionType type) {
+    public List<NoticeReactionDTO> toggleReaction(Long noticeId, User user, String type) {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new BusinessException("NOTICE_NOT_FOUND"));
 
@@ -122,10 +121,10 @@ public class NoticeService {
     }
 
     private List<NoticeReactionDTO> mapReactionsToDTO(List<NoticeReaction> reactions, User currentUser) {
-        Map<ReactionType, Long> counts = reactions.stream()
+        Map<String, Long> counts = reactions.stream()
                 .collect(Collectors.groupingBy(NoticeReaction::getType, Collectors.counting()));
 
-        List<ReactionType> userTypes = reactions.stream()
+        List<String> userTypes = reactions.stream()
                 .filter(r -> r.getUser().getId().equals(currentUser.getId()))
                 .map(NoticeReaction::getType)
                 .collect(Collectors.toList());
