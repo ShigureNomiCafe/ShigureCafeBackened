@@ -10,6 +10,7 @@ import cafe.shigure.ShigureCafeBackened.model.User;
 import cafe.shigure.ShigureCafeBackened.model.UserStatus;
 import cafe.shigure.ShigureCafeBackened.service.MinecraftAuthService;
 import cafe.shigure.ShigureCafeBackened.service.RateLimitService;
+import cafe.shigure.ShigureCafeBackened.service.StorageService;
 import cafe.shigure.ShigureCafeBackened.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -32,6 +34,7 @@ public class UserResourceController {
     private final UserService userService;
     private final MinecraftAuthService minecraftAuthService;
     private final RateLimitService rateLimitService;
+    private final StorageService storageService;
 
     @Value("${application.microsoft.minecraft.client-id}")
     private String microsoftClientId;
@@ -198,10 +201,53 @@ public class UserResourceController {
         return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/{username}/avatar")
+    @PreAuthorize("#username == authentication.name")
+    @RateLimit(key = "users:avatar", expression = "#currentUser.id", milliseconds = 5000)
+    public ResponseEntity<Map<String, String>> uploadAvatar(@PathVariable String username,
+                                                           @RequestParam("file") MultipartFile file,
+                                                           @AuthenticationPrincipal User currentUser) {
+        if (file.isEmpty()) {
+            throw new BusinessException("FILE_EMPTY");
+        }
+        
+        // Basic size check (e.g., 2MB)
+        if (file.getSize() > 2 * 1024 * 1024) {
+            throw new BusinessException("FILE_TOO_LARGE");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new BusinessException("INVALID_FILE_TYPE");
+        }
+
+        String avatarUrl = storageService.uploadFile(file, "avatars");
+        userService.updateAvatar(currentUser.getId(), avatarUrl);
+        
+        return ResponseEntity.ok(Map.of("avatarUrl", avatarUrl));
+    }
+
+    @GetMapping("/{username}/avatar/presigned-url")
+    @PreAuthorize("#username == authentication.name")
+    public ResponseEntity<Map<String, String>> getPresignedUrl(@PathVariable String username,
+                                                              @RequestParam String contentType) {
+        return ResponseEntity.ok(storageService.generatePresignedUploadUrl("avatars", contentType));
+    }
+
+    @PutMapping("/{username}/avatar")
+    @PreAuthorize("#username == authentication.name")
+    public ResponseEntity<Void> updateAvatarUrl(@PathVariable String username,
+                                                @RequestBody UpdateAvatarRequest request,
+                                                @AuthenticationPrincipal User currentUser) {
+        userService.updateAvatar(currentUser.getId(), request.avatarUrl());
+        return ResponseEntity.ok().build();
+    }
+
     public record ChangePasswordRequest(String oldPassword, String newPassword) {}
     public record ChangeRoleRequest(Role role) {}
     public record ChangeStatusRequest(UserStatus status) {}
     public record UpdateNicknameRequest(String nickname) {}
+    public record UpdateAvatarRequest(String avatarUrl) {}
     public record ToggleTwoFactorRequest(boolean enabled, String code) {}
     public record ConfirmTotpRequest(String secret, String code) {}
     public record BindMinecraftRequest(String code, String redirectUri) {}

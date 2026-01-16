@@ -35,3 +35,10 @@ application:
       tenant-id: ${MINECRAFT_TENANT_ID:${AZURE_TENANT_ID}}
       client-id: ${MINECRAFT_CLIENT_ID:${AZURE_CLIENT_ID}}
       client-secret: ${MINECRAFT_CLIENT_SECRET:${AZURE_CLIENT_SECRET}}
+  s3:
+    endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    access-key: ${S3_ACCESS_KEY:minioadmin}
+    secret-key: ${S3_SECRET_KEY:minioadmin}
+    bucket: ${S3_BUCKET:shigure-cafe-test}
+    public-url: ${S3_PUBLIC_URL:http://localhost:9000/shigure-cafe-test}
+    region: ${S3_REGION:auto}

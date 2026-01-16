@@ -146,6 +146,7 @@ public class NoticeService {
                 .content(notice.getContent())
                 .pinned(notice.isPinned())
                 .authorNickname(notice.getAuthor().getNickname())
+                .authorAvatarUrl(notice.getAuthor().getAvatarUrl())
                 .createdAt(notice.getCreatedAt())
                 .updatedAt(notice.getUpdatedAt())
                 .build();

@@ -50,6 +50,9 @@ public class User implements UserDetails {
     @Column(length = 32)
     private String minecraftUsername;
 
+    @Column(length = 255)
+    private String avatarUrl;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<NoticeReaction> reactions = new ArrayList<>();
 

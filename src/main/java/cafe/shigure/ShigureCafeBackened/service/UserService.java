@@ -307,6 +307,7 @@ public class UserService {
                 user.getNickname(),
                 user.getEmail(),
                 user.getStatus(),
+                user.getAvatarUrl(),
                 audit.getAuditCode(),
                 audit.isExpired());
     }
@@ -435,7 +436,17 @@ public class UserService {
                 user.isEmail2faEnabled(),
                 totpEnabled,
                 user.getMinecraftUuid(),
-                user.getMinecraftUsername());
+                user.getMinecraftUsername(),
+                user.getAvatarUrl());
+    }
+
+    @Transactional
+    public void updateAvatar(Long id, String avatarUrl) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
+        user.setAvatarUrl(avatarUrl);
+        userRepository.save(user);
+        cacheService.updateTimestamp(CacheService.USER_LIST_KEY);
     }
 
     public User getUserById(Long id) {

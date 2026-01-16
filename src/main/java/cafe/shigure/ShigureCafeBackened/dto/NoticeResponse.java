@@ -18,6 +18,7 @@ public class NoticeResponse implements Serializable {
     private String content;
     private boolean pinned;
     private String authorNickname;
+    private String authorAvatarUrl;
     private long createdAt;
     private long updatedAt;
 }

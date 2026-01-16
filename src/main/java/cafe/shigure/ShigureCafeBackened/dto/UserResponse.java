@@ -20,4 +20,5 @@ public class UserResponse {
     private boolean totpEnabled;
     private String minecraftUuid;
     private String minecraftUsername;
+    private String avatarUrl;
 }

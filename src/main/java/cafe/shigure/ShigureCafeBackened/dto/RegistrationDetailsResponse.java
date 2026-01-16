@@ -13,6 +13,7 @@ public class RegistrationDetailsResponse {
     private String nickname;
     private String email;
     private UserStatus status;
+    private String avatarUrl;
     private String auditCode;
     private boolean isExpired;
 }
