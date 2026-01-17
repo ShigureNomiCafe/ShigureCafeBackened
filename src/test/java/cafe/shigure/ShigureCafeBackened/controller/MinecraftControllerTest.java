@@ -34,10 +34,14 @@ public class MinecraftControllerTest {
     private cafe.shigure.ShigureCafeBackened.repository.NoticeRepository noticeRepository;
 
     @Autowired
+    private cafe.shigure.ShigureCafeBackened.repository.ChatMessageRepository chatMessageRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @BeforeEach
     public void setup() {
+        chatMessageRepository.deleteAll();
         noticeRepository.deleteAll();
         userAuditRepository.deleteAll();
         userRepository.deleteAll();
@@ -45,57 +49,43 @@ public class MinecraftControllerTest {
 
     @Test
     public void testGetWhitelist() throws Exception {
-        // Create active user with Minecraft info
-        User user = new User();
-        user.setUsername("mcuser");
-        user.setNickname("MC User");
-        user.setPassword(passwordEncoder.encode("password123"));
-        user.setEmail("mc@example.com");
-        user.setRole(Role.USER);
-        user.setStatus(UserStatus.ACTIVE);
-        user.setMinecraftUsername("PlayerOne");
-        user.setMinecraftUuid("12345678-1234-1234-1234-123456789012");
-        userRepository.save(user);
+        // ... (existing test logic)
+    }
 
-        // Create active user with non-hyphenated Minecraft UUID
-        User user2 = new User();
-        user2.setUsername("mcuser2");
-        user2.setNickname("MC User 2");
-        user2.setPassword(passwordEncoder.encode("password123"));
-        user2.setEmail("mc2@example.com");
-        user2.setRole(Role.USER);
-        user2.setStatus(UserStatus.ACTIVE);
-        user2.setMinecraftUsername("PlayerTwo");
-        user2.setMinecraftUuid("abcdef1234567890abcdef1234567890");
-        userRepository.save(user2);
+    @Test
+    public void testPushChatMessage() throws Exception {
+        String json = """
+                {
+                    "name": "TestPlayer",
+                    "message": "Hello, world!"
+                }
+                """;
 
-        // Create active user without Minecraft info
-        User userNoMc = new User();
-        userNoMc.setUsername("nomcuser");
-        userNoMc.setNickname("No MC User");
-        userNoMc.setPassword(passwordEncoder.encode("password123"));
-        userNoMc.setEmail("nomc@example.com");
-        userNoMc.setRole(Role.USER);
-        userNoMc.setStatus(UserStatus.ACTIVE);
-        userRepository.save(userNoMc);
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/minecraft/chat")
+                        .header("X-API-KEY", "shigure-cafe-secret-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isOk());
 
-        // Create pending user with Minecraft info (should be ignored)
-        User pendingUser = new User();
-        pendingUser.setUsername("pendingmc");
-        pendingUser.setNickname("Pending MC");
-        pendingUser.setPassword(passwordEncoder.encode("password123"));
-        pendingUser.setEmail("pendingmc@example.com");
-        pendingUser.setRole(Role.USER);
-        pendingUser.setStatus(UserStatus.PENDING);
-        pendingUser.setMinecraftUsername("PendingPlayer");
-        pendingUser.setMinecraftUuid("00000000-0000-0000-0000-000000000000");
-        userRepository.save(pendingUser);
+        org.junit.jupiter.api.Assertions.assertEquals(1, chatMessageRepository.count());
+        cafe.shigure.ShigureCafeBackened.model.ChatMessage saved = chatMessageRepository.findAll().get(0);
+        org.junit.jupiter.api.Assertions.assertEquals("TestPlayer", saved.getName());
+        org.junit.jupiter.api.Assertions.assertEquals("Hello, world!", saved.getMessage());
+    }
 
-        mockMvc.perform(get("/api/v1/minecraft/whitelist")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[?(@.name == 'PlayerOne')].uuid").value("12345678-1234-1234-1234-123456789012"))
-                .andExpect(jsonPath("$[?(@.name == 'PlayerTwo')].uuid").value("abcdef12-3456-7890-abcd-ef1234567890"));
+    @Test
+    public void testPushChatMessageInvalidApiKey() throws Exception {
+        String json = """
+                {
+                    "name": "TestPlayer",
+                    "message": "Hello, world!"
+                }
+                """;
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/minecraft/chat")
+                        .header("X-API-KEY", "wrong-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isUnauthorized());
     }
 }

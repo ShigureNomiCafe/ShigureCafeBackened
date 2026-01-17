@@ -25,6 +25,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
+    private final ApiKeyAuthenticationFilter apiKeyAuthFilter;
     private final CustomUserDetailsService userDetailsService;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
@@ -35,7 +36,8 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/token", "/api/v1/auth/2fa/verify", "/api/v1/auth/verification-codes", "/api/v1/auth/password-reset").permitAll()
-                .requestMatchers("/api/v1/minecraft/whitelist").permitAll()
+                .requestMatchers("/api/v1/minecraft/whitelist").hasAnyAuthority("ADMIN", "API_CLIENT")
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/minecraft/chat").hasAnyAuthority("ADMIN", "API_CLIENT")
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/registrations").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/registrations").hasAuthority("ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/registrations/**").permitAll()
@@ -50,6 +52,7 @@ public class SecurityConfig {
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(authenticationProvider())
+            .addFilterBefore(apiKeyAuthFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
