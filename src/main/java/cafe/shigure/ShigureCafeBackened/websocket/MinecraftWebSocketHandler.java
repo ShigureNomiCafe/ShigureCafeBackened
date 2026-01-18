@@ -73,21 +73,21 @@ public class MinecraftWebSocketHandler extends TextWebSocketHandler {
             // But let's assume it's a JSON string for now.
             Map<String, Object> data = objectMapper.readValue(message, Map.class);
             ChatMessageResponse response = objectMapper.convertValue(data.get("message"), ChatMessageResponse.class);
-            String senderSessionId = (String) data.get("senderSessionId");
             
-            // Broadcast to local sessions, but avoid echoing back to the original sender if they are on this instance
-            broadcast(response, senderSessionId);
+            // Broadcast to all local sessions, including the sender if they are on this instance.
+            // This allows the sender to receive the message with its database-generated ID.
+            broadcast(response);
         } catch (Exception e) {
             log.error("Error handling Redis message: {}", e.getMessage());
         }
     }
 
-    private void broadcast(ChatMessageResponse message, String skipSessionId) {
+    private void broadcast(ChatMessageResponse message) {
         try {
             String payload = objectMapper.writeValueAsString(message);
             TextMessage textMessage = new TextMessage(payload);
             for (WebSocketSession session : sessions) {
-                if (session.isOpen() && (skipSessionId == null || !session.getId().equals(skipSessionId))) {
+                if (session.isOpen()) {
                     try {
                         session.sendMessage(textMessage);
                     } catch (IOException e) {
