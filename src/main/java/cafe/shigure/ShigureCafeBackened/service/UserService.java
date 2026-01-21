@@ -347,6 +347,7 @@ public class UserService {
         cacheService.updateTimestamp(CacheService.AUDIT_LIST_KEY);
     }
 
+    @Transactional
     public void deleteUser(Long id) {
         if (!userRepository.existsById(id)) {
             throw new BusinessException("USER_NOT_FOUND");
