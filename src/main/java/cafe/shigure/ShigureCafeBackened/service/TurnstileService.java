@@ -17,7 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TurnstileService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     @Value("${application.turnstile.secret-key}")
     private String secretKey;

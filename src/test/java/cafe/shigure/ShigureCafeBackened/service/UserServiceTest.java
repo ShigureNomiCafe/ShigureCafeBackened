@@ -3,6 +3,7 @@ package cafe.shigure.ShigureCafeBackened.service;
 import cafe.shigure.ShigureCafeBackened.dto.MinecraftWhitelistResponse;
 import cafe.shigure.ShigureCafeBackened.exception.BusinessException;
 import cafe.shigure.ShigureCafeBackened.model.User;
+import cafe.shigure.ShigureCafeBackened.model.UserAudit;
 import cafe.shigure.ShigureCafeBackened.model.UserStatus;
 import cafe.shigure.ShigureCafeBackened.repository.TokenBlacklistRepository;
 import cafe.shigure.ShigureCafeBackened.repository.UserAuditRepository;
@@ -125,6 +126,53 @@ class UserServiceTest {
         // Check second user (needs formatting)
         assertEquals("Player2", result.get(1).name());
         assertEquals("abcdef12-3456-7890-abcd-ef1234567890", result.get(1).uuid());
+    }
+
+    @Test
+    void approveUser_shouldSetAuditToNullAndDeleteAudit() {
+        String auditCode = "test-audit-code";
+        User user = new User();
+        user.setStatus(UserStatus.PENDING);
+        
+        UserAudit audit = new UserAudit();
+        audit.setAuditCode(auditCode);
+        audit.setUser(user);
+        audit.setExpiryDate(System.currentTimeMillis() + 10000);
+        user.setAudit(audit);
+
+        when(userAuditRepository.findByAuditCode(auditCode)).thenReturn(Optional.of(audit));
+
+        userService.approveUser(auditCode);
+
+        assertEquals(UserStatus.ACTIVE, user.getStatus());
+        assertNull(user.getAudit());
+        verify(userRepository).save(user);
+        verify(userAuditRepository).delete(audit);
+        verify(cacheService).updateTimestamp(CacheService.USER_LIST_KEY);
+        verify(cacheService).updateTimestamp(CacheService.AUDIT_LIST_KEY);
+    }
+
+    @Test
+    void banUser_shouldSetAuditToNullAndDeleteAudit() {
+        String auditCode = "test-audit-code";
+        User user = new User();
+        user.setStatus(UserStatus.PENDING);
+
+        UserAudit audit = new UserAudit();
+        audit.setAuditCode(auditCode);
+        audit.setUser(user);
+        user.setAudit(audit);
+
+        when(userAuditRepository.findByAuditCode(auditCode)).thenReturn(Optional.of(audit));
+
+        userService.banUser(auditCode);
+
+        assertEquals(UserStatus.BANNED, user.getStatus());
+        assertNull(user.getAudit());
+        verify(userRepository).save(user);
+        verify(userAuditRepository).delete(audit);
+        verify(cacheService).updateTimestamp(CacheService.USER_LIST_KEY);
+        verify(cacheService).updateTimestamp(CacheService.AUDIT_LIST_KEY);
     }
 }
 

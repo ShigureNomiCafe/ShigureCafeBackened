@@ -38,3 +38,4 @@ GEMINI.md
 
 ### Environment Setup ###
 .env
+.env.test

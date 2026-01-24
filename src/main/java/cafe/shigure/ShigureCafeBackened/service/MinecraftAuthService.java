@@ -17,8 +17,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class MinecraftAuthService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
 
     @Value("${application.microsoft.minecraft.client-id}")
     private String clientId;

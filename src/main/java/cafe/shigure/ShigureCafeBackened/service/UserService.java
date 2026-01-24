@@ -326,6 +326,7 @@ public class UserService {
             throw new BusinessException("USER_ALREADY_ACTIVE");
         }
         user.setStatus(UserStatus.ACTIVE);
+        user.setAudit(null);
         userRepository.save(user);
         cacheService.updateTimestamp(CacheService.USER_LIST_KEY);
 
@@ -340,6 +341,7 @@ public class UserService {
 
         User user = audit.getUser();
         user.setStatus(UserStatus.BANNED);
+        user.setAudit(null);
         userRepository.save(user);
         cacheService.updateTimestamp(CacheService.USER_LIST_KEY);
 
