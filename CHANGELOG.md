@@ -1,5 +1,19 @@
 # Changelog
 
+## [v1.1.0] - 2026-01-24
+
+### Added
+- Integrated Cloudflare Turnstile for CAPTCHA verification.
+- Added database migration support with Flyway and initial migration script.
+
+### Changed
+- Updated `spring-boot-starter-aop` to 3.5.10.
+- Configured JPA `ddl-auto` to `validate`.
+- Updated dependencies and formatted `pom.xml`.
+
+### Fixed
+- Updated environment variables in `.env.example` and `README.md`.
+
 ## [v1.0.1] - 2026-01-22
 
 ### Fixed

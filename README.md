@@ -12,6 +12,7 @@ The backend service for ShigureCafe, a robust and secure user management and soc
     *   **Secure Passwords:** Strong hashing using BCrypt.
     *   **API Key Authentication:** Secure communication for internal plugins and services.
     *   **Rate Limiting:** AOP-based rate limiting to prevent brute-force and spam.
+    *   **CAPTCHA Verification:** Integrated **Cloudflare Turnstile** for secure, user-friendly bot protection.
 *   **Minecraft Integration:**
     *   **Real-time Chat Sync:** WebSocket-based synchronization between the web frontend and Minecraft server.
     *   **Account Binding:** Securely link Minecraft accounts using **Microsoft OAuth2**.
@@ -29,6 +30,7 @@ The backend service for ShigureCafe, a robust and secure user management and soc
     *   **Email Verification:** Integration with **Microsoft Graph API** for reliable email delivery.
 *   **Architecture & Reliability:**
     *   **Global Exception Handling:** Standardized error responses.
+    *   **Database Migrations:** Managed by **Flyway** for reliable schema versioning.
     *   **Scheduled Tasks:** Automatic cleanup of expired tokens, verification codes, and abandoned resources.
     *   **API Documentation:** Integrated **Springdoc OpenAPI (Swagger)**.
 
@@ -36,14 +38,15 @@ The backend service for ShigureCafe, a robust and secure user management and soc
 
 *   **Framework:** Spring Boot 4.0.1
 *   **Language:** Java 25
-*   **Security:** Spring Security & JJWT 0.12.6
+*   **Security:** Spring Security & JJWT 0.13.0
 *   **Messaging:** Spring WebSocket & Redis Pub/Sub
-*   **Storage:** AWS SDK for Java (S3)
-*   **Integration:** Microsoft OAuth2 & Microsoft Graph SDK 6.19.0
+*   **Storage:** AWS SDK for Java (S3) 2.41.10
+*   **Integration:** Microsoft OAuth2 & Microsoft Graph SDK 6.60.0
 *   **Cache/Storage:** Redis (for verification codes, rate limiting, and messaging)
 *   **Database:** MariaDB with Spring Data JPA & Hibernate
+*   **Migrations:** Flyway
 *   **MFA:** dev.samstevens.totp 1.7.1
-*   **Documentation:** Springdoc OpenAPI 2.8.14
+*   **Documentation:** Springdoc OpenAPI 3.0.1
 
 ## Project Structure
 
@@ -108,6 +111,9 @@ S3_REGION='auto'
 
 # The api key for interacting with ShigureCafePlugin
 API_KEY='YourApiKeyHere'
+
+# Cloudflare Turnstile Configuration
+TURNSTILE_SECRET_KEY='YourTurnstileSecretKeyHere'
 ```
 
 ### Running the Application
