@@ -38,6 +38,8 @@ application:
         update-email: "更换邮箱"
         reset-password: "重置密码"
         2fa: "身份验证"
+    notification:
+      template-path: "templates/notification.html"
   microsoft:
     mail:
       tenant-id: ${MAIL_TENANT_ID}

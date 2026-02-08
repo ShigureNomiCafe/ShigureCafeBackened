@@ -27,6 +27,9 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.commonmark.node.*;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
 
 @Service
 @RequiredArgsConstructor
@@ -49,6 +52,9 @@ public class UserService {
 
     @Value("${application.mail.verification.template-path}")
     private String verificationTemplatePath;
+
+    @Value("${application.mail.notification.template-path}")
+    private String notificationTemplatePath;
 
     @Value("${application.mail.verification.labels.register:账号注册}")
     private String labelRegister;
@@ -548,20 +554,30 @@ public class UserService {
     public void sendEmailNotificationToAllActiveUsers(String subject, String content) {
         List<User> activeUsers = userRepository.findByStatus(UserStatus.ACTIVE);
         log.info("Starting to send notification emails to {} active users. Subject: {}", activeUsers.size(), subject);
-
+        Parser parser = Parser.builder().build();
+        Node document = parser.parse(content);
+        HtmlRenderer renderer = HtmlRenderer.builder().build();
+        String renderedHtml = renderer.render(document);
+        String emailHtml;
+        try {
+            emailHtml = emailService.loadTemplate(notificationTemplatePath, Map.of(
+                    "title", subject,
+                    "content", renderedHtml));
+        } catch (Exception e) {
+            log.error("Failed to load email notification template: {}", e.getMessage());
+            emailHtml = renderedHtml; // Fallback to just the rendered content
+        }
         int successCount = 0;
         int failureCount = 0;
-
         for (User user : activeUsers) {
             try {
-                emailService.sendSimpleMessage(user.getEmail(), subject, content);
+                emailService.sendHtmlMessage(user.getEmail(), subject, emailHtml);
                 successCount++;
             } catch (Exception e) {
                 log.error("Failed to send notification email to {}: {}", user.getEmail(), e.getMessage());
                 failureCount++;
             }
         }
-
         log.info("Finished sending notification emails. Success: {}, Failure: {}", successCount, failureCount);
     }
 
