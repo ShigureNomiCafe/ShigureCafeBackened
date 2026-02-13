@@ -13,6 +13,9 @@ The backend service for ShigureCafe, a robust and secure user management and soc
     *   **API Key Authentication:** Secure communication for internal plugins and services.
     *   **Rate Limiting:** Advanced rate limiting using **Bucket4j** and AOP to prevent brute-force and spam.
     *   **CAPTCHA Verification:** Integrated **Cloudflare Turnstile** for secure, user-friendly bot protection.
+*   **System Monitoring & Logging:**
+    *   **Centralized Log Storage:** Secure and efficient storage of system and security logs.
+    *   **Real-time Log Polling:** Monitor backend logs in real-time from the admin dashboard using cursor-based pagination.
 *   **Minecraft Integration:**
     *   **Real-time Chat Sync:** WebSocket-based synchronization between the web frontend and Minecraft server.
     *   **Account Binding:** Securely link Minecraft accounts using **Microsoft OAuth2**.

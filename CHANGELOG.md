@@ -1,5 +1,15 @@
 # Changelog
 
+## [v1.3.0] - 2026-02-13
+
+### Added
+- Implemented centralized log storage system for enhanced system monitoring.
+- Implemented log retrieval API with support for various log types and levels.
+- Added cursor-based pagination and real-time polling for logs in the admin dashboard.
+
+### Changed
+- Refactored the internal logging system to improve performance and reliability.
+
 ## [v1.2.0] - 2026-02-08
 
 ### Added
