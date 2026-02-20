@@ -45,6 +45,19 @@ public class LogService {
         systemLogRepository.save(log);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void logAll(java.util.List<cafe.shigure.ShigureCafeBackend.dto.LogRequest> requests) {
+        java.util.List<SystemLog> logs = requests.stream()
+                .map(request -> SystemLog.builder()
+                        .timestamp(request.getTimestamp() != null ? request.getTimestamp() : Instant.now().toEpochMilli())
+                        .level(request.getLevel() != null ? request.getLevel().toUpperCase() : "INFO")
+                        .source(request.getSource() != null ? request.getSource() : "EXTERNAL")
+                        .content(request.getContent())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+        systemLogRepository.saveAll(logs);
+    }
+
     public void logInternal(String level, String module, String content) {
         String formattedContent = (module != null && !module.isEmpty()) 
                 ? String.format("[%s] %s", module, content) 

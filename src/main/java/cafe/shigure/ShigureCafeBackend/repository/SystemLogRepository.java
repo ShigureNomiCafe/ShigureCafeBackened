@@ -40,4 +40,6 @@ public interface SystemLogRepository extends JpaRepository<SystemLog, Long> {
                                                          @Param("search") String search,
                                                          @Param("beforeId") Long beforeId,
                                                          Pageable pageable);
+
+    void deleteByTimestampBefore(Long timestamp);
 }

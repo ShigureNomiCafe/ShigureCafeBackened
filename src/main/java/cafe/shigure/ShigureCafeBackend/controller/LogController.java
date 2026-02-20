@@ -14,12 +14,12 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 
 @RestController
-@RequestMapping("/api/v1/logs")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class LogController {
     private final LogService logService;
 
-    @GetMapping("/latest")
+    @GetMapping("/v1/logs/latest")
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<java.util.List<SystemLog>> getLatestLogs(
             @RequestParam(required = false) String level,
@@ -30,7 +30,7 @@ public class LogController {
         return ResponseEntity.ok(logService.getLogsAfter(level, source, search, afterId, limit));
     }
 
-    @GetMapping("/older")
+    @GetMapping("/v1/logs/older")
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<java.util.List<SystemLog>> getOlderLogs(
             @RequestParam(required = false) String level,
@@ -41,15 +41,10 @@ public class LogController {
         return ResponseEntity.ok(logService.getLogsBefore(level, source, search, beforeId, limit));
     }
 
-    @PostMapping
+    @PostMapping({"/v1/logs", "/v2/uploadLogs"})
     @PreAuthorize("hasAuthority('API_CLIENT')")
-    public ResponseEntity<Void> addLog(@RequestBody LogRequest request) {
-        logService.log(
-                request.getLevel() != null ? request.getLevel().toUpperCase() : "INFO",
-                request.getSource() != null ? request.getSource() : "EXTERNAL",
-                request.getContent(),
-                request.getTimestamp()
-        );
+    public ResponseEntity<Void> addLogs(@RequestBody java.util.List<LogRequest> requests) {
+        logService.logAll(requests);
         return ResponseEntity.ok().build();
     }
 }

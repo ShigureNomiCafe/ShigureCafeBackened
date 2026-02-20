@@ -82,45 +82,69 @@ public class LogControllerTest {
                 .content("Test log 2")
                 .build());
 
-        mockMvc.perform(get("/api/v1/logs")
+        mockMvc.perform(get("/api/v1/logs/latest")
                         .with(user(admin))
                         .param("level", "INFO"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].level").value("INFO"));
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].level").value("INFO"));
 
-        mockMvc.perform(get("/api/v1/logs")
+        mockMvc.perform(get("/api/v1/logs/latest")
                         .with(user(admin))
                         .param("search", "log 2"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content.length()").value(1))
-                .andExpect(jsonPath("$.content[0].content").value("Test log 2"));
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].content").value("Test log 2"));
     }
 
     @Test
-    public void testAddLog() throws Exception {
-        LogRequest request = new LogRequest();
-        request.setLevel("WARN");
-        request.setSource("EXTERNAL_BOT");
-        request.setContent("External warning");
-        request.setTimestamp(Instant.now().toEpochMilli());
+    public void testAddLogs() throws Exception {
+        LogRequest request1 = new LogRequest();
+        request1.setLevel("WARN");
+        request1.setSource("EXTERNAL_BOT");
+        request1.setContent("External warning 1");
+        request1.setTimestamp(Instant.now().toEpochMilli());
+
+        LogRequest request2 = new LogRequest();
+        request2.setLevel("ERROR");
+        request2.setSource("EXTERNAL_BOT");
+        request2.setContent("External error 2");
+        request2.setTimestamp(Instant.now().toEpochMilli());
+
+        java.util.List<LogRequest> requests = java.util.Arrays.asList(request1, request2);
 
         mockMvc.perform(post("/api/v1/logs")
                         .header("Cafe-API-Key", "test-api-key")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(requests)))
+                .andExpect(status().isOk());
+
+        assert systemLogRepository.count() == 2;
+    }
+
+    @Test
+    public void testAddLogsV2Alias() throws Exception {
+        LogRequest request = new LogRequest();
+        request.setLevel("INFO");
+        request.setSource("V2_TEST");
+        request.setContent("V2 alias test");
+
+        java.util.List<LogRequest> requests = java.util.Collections.singletonList(request);
+
+        mockMvc.perform(post("/api/v2/uploadLogs")
+                        .header("Cafe-API-Key", "test-api-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requests)))
                 .andExpect(status().isOk());
 
         assert systemLogRepository.count() == 1;
         SystemLog saved = systemLogRepository.findAll().get(0);
-        assert saved.getLevel().equals("WARN");
-        assert saved.getSource().equals("EXTERNAL_BOT");
-        assert saved.getContent().equals("External warning");
+        assert saved.getContent().equals("V2 alias test");
     }
 
     @Test
     public void testGetLogsForbiddenForUser() throws Exception {
-        mockMvc.perform(get("/api/v1/logs")
+        mockMvc.perform(get("/api/v1/logs/latest")
                         .with(user(normalUser)))
                 .andExpect(status().isForbidden());
     }

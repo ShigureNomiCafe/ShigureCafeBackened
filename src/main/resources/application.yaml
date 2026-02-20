@@ -60,3 +60,7 @@ application:
     region: ${S3_REGION:auto}
   turnstile:
     secret-key: ${TURNSTILE_SECRET_KEY}
+  system:
+    logs:
+      retention-days: ${LOG_RETENTION_DAYS:7}
+  
