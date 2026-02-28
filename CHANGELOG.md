@@ -1,5 +1,12 @@
 # Changelog
 
+## [v1.3.1] - 2026-02-28
+
+### Changed
+- Refactored the notification system by renaming `Notice` to `Article` to support multiple content types (e.g., Announcements, Blogs).
+- Introduced `ArticleType` enum and `ArticleReaction` for more flexible content management.
+- Migrated database schema to support the new `Articles` structure.
+
 ## [v1.3.0] - 2026-02-13
 
 ### Added
