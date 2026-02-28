@@ -34,21 +34,25 @@ public class ArticleService {
     public static final String ARTICLE_LIST_KEY = "articles:list:timestamp";
 
     @Transactional(readOnly = true)
-    public PagedResponse<ArticleResponse> getAllArticles(Pageable pageable) {
+    public PagedResponse<ArticleResponse> getAllArticles(Pageable pageable, User currentUser) {
         Page<ArticleResponse> page = articleRepository.findAllByOrderByPinnedDescUpdatedAtDesc(pageable)
-                .map(this::mapToResponse);
+                .map(article -> mapToResponse(article, currentUser));
         return PagedResponse.fromPage(page, cacheService.getTimestamp(ARTICLE_LIST_KEY));
     }
 
     @Transactional(readOnly = true)
-    public ArticleResponse getArticleById(Long id) {
+    public ArticleResponse getArticleById(Long id, User currentUser) {
         Article article = articleRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("ARTICLE_NOT_FOUND"));
-        return mapToResponse(article);
+        return mapToResponse(article, currentUser);
     }
 
     @Transactional
     public ArticleResponse createArticle(ArticleRequest request, User author) {
+        if (request.getType() == ArticleType.ANNOUNCEMENT && !author.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ADMIN"))) {
+            throw new BusinessException("ADMIN_REQUIRED_FOR_ANNOUNCEMENT");
+        }
+
         Article article = new Article(request.getTitle(), request.getContent(), request.getType(), request.isPinned(), author);
         
         if (request.getType() == ArticleType.COMMISSION && request.getAssigneeId() != null) {
@@ -59,13 +63,20 @@ public class ArticleService {
 
         Article savedArticle = articleRepository.saveAndFlush(article);
         cacheService.updateTimestamp(ARTICLE_LIST_KEY);
-        return mapToResponse(savedArticle);
+        return mapToResponse(savedArticle, author);
     }
 
     @Transactional
-    public ArticleResponse updateArticle(Long id, ArticleRequest request) {
+    public ArticleResponse updateArticle(Long id, ArticleRequest request, User currentUser) {
         Article article = articleRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("ARTICLE_NOT_FOUND"));
+
+        boolean isAdmin = currentUser.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ADMIN"));
+        boolean isAuthor = article.getAuthor().getId().equals(currentUser.getId());
+
+        if (!isAdmin && !isAuthor) {
+            throw new BusinessException("UNAUTHORIZED_ARTICLE_UPDATE");
+        }
 
         article.setTitle(request.getTitle());
         article.setContent(request.getContent());
@@ -82,19 +93,75 @@ public class ArticleService {
 
         Article updatedArticle = articleRepository.saveAndFlush(article);
         cacheService.updateTimestamp(ARTICLE_LIST_KEY);
-        return mapToResponse(updatedArticle);
+        return mapToResponse(updatedArticle, currentUser);
     }
 
     @Transactional
-    public void deleteArticle(Long id) {
-        if (!articleRepository.existsById(id)) {
-            throw new BusinessException("ARTICLE_NOT_FOUND");
+    public void deleteArticle(Long id, User currentUser) {
+        Article article = articleRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("ARTICLE_NOT_FOUND"));
+
+        boolean isAdmin = currentUser.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ADMIN"));
+        boolean isAuthor = article.getAuthor().getId().equals(currentUser.getId());
+
+        if (!isAdmin && !isAuthor) {
+            throw new BusinessException("UNAUTHORIZED_ARTICLE_DELETE");
         }
-        articleRepository.deleteById(id);
+
+        articleRepository.delete(article);
         cacheService.updateTimestamp(ARTICLE_LIST_KEY);
     }
 
-    private ArticleResponse mapToResponse(Article article) {
+    @Transactional
+    public List<NoticeReactionDTO> toggleReaction(Long articleId, User user, String type) {
+        Article article = articleRepository.findById(articleId)
+                .orElseThrow(() -> new BusinessException("ARTICLE_NOT_FOUND"));
+
+        java.util.Optional<ArticleReaction> reactionOpt = articleReactionRepository.findByArticleAndUserAndType(article, user, type);
+
+        if (reactionOpt.isPresent()) {
+            articleReactionRepository.delete(reactionOpt.get());
+        } else {
+            User managedUser = userRepository.findById(user.getId())
+                    .orElseThrow(() -> new BusinessException("USER_NOT_FOUND"));
+            ArticleReaction reaction = new ArticleReaction(article, managedUser, type);
+            articleReactionRepository.save(reaction);
+        }
+
+        return getReactions(articleId, user);
+    }
+
+    @Transactional(readOnly = true)
+    public List<NoticeReactionDTO> getReactions(Long articleId, User currentUser) {
+        Article article = articleRepository.findById(articleId)
+                .orElseThrow(() -> new BusinessException("ARTICLE_NOT_FOUND"));
+        
+        List<ArticleReaction> reactions = articleReactionRepository.findByArticle(article);
+        return mapReactionsToDTO(reactions, currentUser);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, List<NoticeReactionDTO>> getReactionsBatch(List<Long> articleIds, User currentUser) {
+        if (articleIds == null || articleIds.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
+
+        List<Article> articles = articleRepository.findAllById(articleIds);
+        List<ArticleReaction> allReactions = articleReactionRepository.findByArticleIn(articles);
+
+        Map<Long, List<ArticleReaction>> reactionsByArticle = allReactions.stream()
+                .collect(Collectors.groupingBy(r -> r.getArticle().getId()));
+
+        Map<Long, List<NoticeReactionDTO>> result = new java.util.HashMap<>();
+        for (Long articleId : articleIds) {
+            List<ArticleReaction> reactions = reactionsByArticle.getOrDefault(articleId, java.util.Collections.emptyList());
+            result.put(articleId, mapReactionsToDTO(reactions, currentUser));
+        }
+
+        return result;
+    }
+
+    private ArticleResponse mapToResponse(Article article, User currentUser) {
         return ArticleResponse.builder()
                 .id(article.getId())
                 .title(article.getTitle())
@@ -103,7 +170,7 @@ public class ArticleService {
                 .pinned(article.isPinned())
                 .authorUsername(article.getAuthor().getUsername())
                 .assigneeUsername(article.getAssignee() != null ? article.getAssignee().getUsername() : null)
-                .reactions(mapReactionsToDTO(article.getReactions(), null)) // Article service response may not always have current user
+                .reactions(mapReactionsToDTO(article.getReactions(), currentUser))
                 .createdAt(article.getCreatedAt())
                 .updatedAt(article.getUpdatedAt())
                 .build();
@@ -115,11 +182,16 @@ public class ArticleService {
         Map<String, Long> counts = reactions.stream()
                 .collect(Collectors.groupingBy(ArticleReaction::getType, Collectors.counting()));
 
+        List<String> userTypes = currentUser != null ? reactions.stream()
+                .filter(r -> r.getUser().getId().equals(currentUser.getId()))
+                .map(ArticleReaction::getType)
+                .collect(Collectors.toList()) : List.of();
+
         return counts.entrySet().stream()
                 .map(entry -> NoticeReactionDTO.builder()
                         .type(entry.getKey())
                         .count(entry.getValue())
-                        .reacted(currentUser != null && reactions.stream().anyMatch(r -> r.getUser().getId().equals(currentUser.getId()) && r.getType().equals(entry.getKey())))
+                        .reacted(userTypes.contains(entry.getKey()))
                         .build())
                 .collect(Collectors.toList());
     }
