@@ -11,20 +11,20 @@ import lombok.ToString;
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "notice_reactions", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"notice_id", "user_id", "type"})
+@Table(name = "article_reactions", uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"article_id", "user_id", "type"})
 })
-public class NoticeReaction {
+public class ArticleReaction {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "notice_id", nullable = false)
+    @JoinColumn(name = "article_id", nullable = false)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private Notice notice;
+    private Article article;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -35,8 +35,8 @@ public class NoticeReaction {
     @Column(nullable = false)
     private String type;
 
-    public NoticeReaction(Notice notice, User user, String type) {
-        this.notice = notice;
+    public ArticleReaction(Article article, User user, String type) {
+        this.article = article;
         this.user = user;
         this.type = type;
     }

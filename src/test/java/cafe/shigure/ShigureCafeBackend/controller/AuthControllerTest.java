@@ -38,7 +38,7 @@ public class AuthControllerTest {
     private UserRepository userRepository;
 
     @Autowired
-    private cafe.shigure.ShigureCafeBackend.repository.NoticeRepository noticeRepository;
+    private cafe.shigure.ShigureCafeBackend.repository.ArticleRepository articleRepository;
 
     @MockitoBean
     private StringRedisTemplate redisTemplate;
@@ -54,7 +54,7 @@ public class AuthControllerTest {
 
     @BeforeEach
     public void setup() {
-        noticeRepository.deleteAll();
+        articleRepository.deleteAll();
         userAuditRepository.deleteAll();
         userRepository.deleteAll();
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);

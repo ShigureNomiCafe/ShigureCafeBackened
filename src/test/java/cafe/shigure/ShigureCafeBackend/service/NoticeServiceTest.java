@@ -3,11 +3,12 @@ package cafe.shigure.ShigureCafeBackend.service;
 import cafe.shigure.ShigureCafeBackend.dto.NoticeRequest;
 import cafe.shigure.ShigureCafeBackend.dto.NoticeResponse;
 import cafe.shigure.ShigureCafeBackend.dto.NoticeReactionDTO;
-import cafe.shigure.ShigureCafeBackend.model.Notice;
-import cafe.shigure.ShigureCafeBackend.model.NoticeReaction;
+import cafe.shigure.ShigureCafeBackend.model.Article;
+import cafe.shigure.ShigureCafeBackend.model.ArticleReaction;
+import cafe.shigure.ShigureCafeBackend.model.ArticleType;
 import cafe.shigure.ShigureCafeBackend.model.User;
-import cafe.shigure.ShigureCafeBackend.repository.NoticeReactionRepository;
-import cafe.shigure.ShigureCafeBackend.repository.NoticeRepository;
+import cafe.shigure.ShigureCafeBackend.repository.ArticleReactionRepository;
+import cafe.shigure.ShigureCafeBackend.repository.ArticleRepository;
 import cafe.shigure.ShigureCafeBackend.repository.UserRepository;
 import cafe.shigure.ShigureCafeBackend.model.ReactionType;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,8 +17,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,17 +24,15 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class NoticeServiceTest {
 
     @Mock
-    private NoticeRepository noticeRepository;
+    private ArticleRepository articleRepository;
     @Mock
-    private NoticeReactionRepository noticeReactionRepository;
+    private ArticleReactionRepository articleReactionRepository;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -45,7 +42,7 @@ class NoticeServiceTest {
     private NoticeService noticeService;
 
     private User user;
-    private Notice notice;
+    private Article noticeArticle;
 
     @BeforeEach
     void setUp() {
@@ -53,12 +50,13 @@ class NoticeServiceTest {
         user.setId(1L);
         user.setNickname("Tester");
 
-        notice = new Notice();
-        notice.setId(1L);
-        notice.setTitle("Test Title");
-        notice.setContent("Test Content");
-        notice.setAuthor(user);
-        notice.setReactions(new ArrayList<>());
+        noticeArticle = new Article();
+        noticeArticle.setId(1L);
+        noticeArticle.setTitle("Test Title");
+        noticeArticle.setContent("Test Content");
+        noticeArticle.setType(ArticleType.ANNOUNCEMENT);
+        noticeArticle.setAuthor(user);
+        noticeArticle.setReactions(new ArrayList<>());
     }
 
     @Test
@@ -66,32 +64,32 @@ class NoticeServiceTest {
         String type1 = ReactionType.THUMBS_UP.name();
         String type2 = ReactionType.HEART.name();
 
-        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
+        when(articleRepository.findById(1L)).thenReturn(Optional.of(noticeArticle));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         
-        when(noticeReactionRepository.findByNoticeAndUserAndType(notice, user, type1)).thenReturn(Optional.empty());
-        when(noticeReactionRepository.findByNoticeAndUserAndType(notice, user, type2)).thenReturn(Optional.empty());
+        when(articleReactionRepository.findByArticleAndUserAndType(noticeArticle, user, type1)).thenReturn(Optional.empty());
+        when(articleReactionRepository.findByArticleAndUserAndType(noticeArticle, user, type2)).thenReturn(Optional.empty());
         
-        List<NoticeReaction> reactionsAfterFirst = new ArrayList<>();
-        reactionsAfterFirst.add(new NoticeReaction(notice, user, type1));
+        List<ArticleReaction> reactionsAfterFirst = new ArrayList<>();
+        reactionsAfterFirst.add(new ArticleReaction(noticeArticle, user, type1));
         
-        List<NoticeReaction> reactionsAfterSecond = new ArrayList<>();
-        reactionsAfterSecond.add(new NoticeReaction(notice, user, type1));
-        reactionsAfterSecond.add(new NoticeReaction(notice, user, type2));
+        List<ArticleReaction> reactionsAfterSecond = new ArrayList<>();
+        reactionsAfterSecond.add(new ArticleReaction(noticeArticle, user, type1));
+        reactionsAfterSecond.add(new ArticleReaction(noticeArticle, user, type2));
 
-        when(noticeReactionRepository.findByNotice(notice))
+        when(articleReactionRepository.findByArticle(noticeArticle))
             .thenReturn(reactionsAfterFirst)
             .thenReturn(reactionsAfterSecond);
 
         // Action 1: Add first reaction
         List<NoticeReactionDTO> result1 = noticeService.toggleReaction(1L, user, type1);
-        verify(noticeReactionRepository).save(any(NoticeReaction.class));
+        verify(articleReactionRepository).save(any(ArticleReaction.class));
         assertEquals(1, result1.size());
         assertEquals(type1, result1.get(0).getType());
 
         // Action 2: Add second reaction
         List<NoticeReactionDTO> result2 = noticeService.toggleReaction(1L, user, type2);
-        verify(noticeReactionRepository, times(2)).save(any(NoticeReaction.class));
+        verify(articleReactionRepository, times(2)).save(any(ArticleReaction.class));
         
         assertEquals(2, result2.size(), "Should have two reactions");
         assertTrue(result2.stream().anyMatch(r -> r.getType().equals(type1)));
@@ -101,31 +99,31 @@ class NoticeServiceTest {
     @Test
     void toggleReaction_shouldRemoveReaction_whenSameEmojiToggled() {
         String type = ReactionType.THUMBS_UP.name();
-        NoticeReaction reaction = new NoticeReaction(notice, user, type);
+        ArticleReaction reaction = new ArticleReaction(noticeArticle, user, type);
         
-        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
-        when(noticeReactionRepository.findByNoticeAndUserAndType(notice, user, type)).thenReturn(Optional.of(reaction));
-        when(noticeReactionRepository.findByNotice(notice)).thenReturn(new ArrayList<>());
+        when(articleRepository.findById(1L)).thenReturn(Optional.of(noticeArticle));
+        when(articleReactionRepository.findByArticleAndUserAndType(noticeArticle, user, type)).thenReturn(Optional.of(reaction));
+        when(articleReactionRepository.findByArticle(noticeArticle)).thenReturn(new ArrayList<>());
 
         noticeService.toggleReaction(1L, user, type);
 
-        verify(noticeReactionRepository).delete(reaction);
+        verify(articleReactionRepository).delete(reaction);
     }
 
     @Test
     void toggleReaction_shouldNotUpdateTimestamp() {
         String type = ReactionType.THUMBS_UP.name();
         long oldTimestamp = System.currentTimeMillis() - 10000;
-        notice.setUpdatedAt(oldTimestamp);
+        noticeArticle.setUpdatedAt(oldTimestamp);
 
-        when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
-        when(noticeReactionRepository.findByNoticeAndUserAndType(notice, user, type)).thenReturn(Optional.empty());
+        when(articleRepository.findById(1L)).thenReturn(Optional.of(noticeArticle));
+        when(articleReactionRepository.findByArticleAndUserAndType(noticeArticle, user, type)).thenReturn(Optional.empty());
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(noticeReactionRepository.findByNotice(notice)).thenReturn(new ArrayList<>());
+        when(articleReactionRepository.findByArticle(noticeArticle)).thenReturn(new ArrayList<>());
 
         noticeService.toggleReaction(1L, user, type);
 
-        assertEquals(oldTimestamp, notice.getUpdatedAt(), "UpdatedAt timestamp should NOT be updated");
+        assertEquals(oldTimestamp, noticeArticle.getUpdatedAt(), "UpdatedAt timestamp should NOT be updated");
     }
 
     @Test
@@ -135,7 +133,7 @@ class NoticeServiceTest {
         request.setContent("New Content");
         request.setPinned(false);
 
-        when(noticeRepository.saveAndFlush(any(Notice.class))).thenReturn(notice);
+        when(articleRepository.saveAndFlush(any(Article.class))).thenReturn(noticeArticle);
 
         noticeService.createNotice(request, user);
 

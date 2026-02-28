@@ -57,10 +57,13 @@ public class User implements UserDetails {
     private UserAudit audit;
 
     @OneToMany(mappedBy = "author", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Notice> notices = new ArrayList<>();
+    private List<Article> articles = new ArrayList<>();
+
+    @OneToMany(mappedBy = "assignee")
+    private List<Article> assignedArticles = new ArrayList<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<NoticeReaction> reactions = new ArrayList<>();
+    private List<ArticleReaction> articleReactions = new ArrayList<>();
 
     @Column(updatable = false, nullable = false)
     private long createdAt;

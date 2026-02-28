@@ -32,7 +32,7 @@ public class MinecraftControllerTest {
     private cafe.shigure.ShigureCafeBackend.repository.UserAuditRepository userAuditRepository;
 
     @Autowired
-    private cafe.shigure.ShigureCafeBackend.repository.NoticeRepository noticeRepository;
+    private cafe.shigure.ShigureCafeBackend.repository.ArticleRepository articleRepository;
 
     @Autowired
     private cafe.shigure.ShigureCafeBackend.repository.ChatMessageRepository chatMessageRepository;
@@ -47,7 +47,7 @@ public class MinecraftControllerTest {
     public void setup() {
         redisTemplate.delete("minecraft:chat:latest");
         chatMessageRepository.deleteAll();
-        noticeRepository.deleteAll();
+        articleRepository.deleteAll();
         userAuditRepository.deleteAll();
         userRepository.deleteAll();
     }
